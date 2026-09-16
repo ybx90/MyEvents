@@ -123,6 +123,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
       <section class="grp"><h3>Projects</h3>
         <select id="projSel" aria-label="Project"></select>
         <div class="actions" style="margin-top:6px"><button class="btn" id="pNew" type="button">New</button><button class="btn" id="pDup" type="button">Duplicate</button><button class="btn danger" id="pDel" type="button">Delete</button></div>
+        <div class="actions" style="margin-top:6px"><button class="btn" id="pBackup" type="button" title="Download every project as one file">Backup all</button><button class="btn" id="pRestore" type="button" title="Load projects from a backup file">Restore</button><input type="file" id="restoreFile" accept=".json,application/json" hidden></div>
         <p class="note" id="syncNote">Saved in this browser.</p>
       </section>
       <section class="grp"><h3>Event</h3>
@@ -284,9 +285,9 @@ function mergeRemote(docs,pushLocal,snap){
   renderProjects();
 }
 async function initCloud(){
-  if(!(window.claude&&typeof window.claude.use==='function')){ setCloudStatus('Saved in this browser only.'); return; }
+  if(!(window.claude&&typeof window.claude.use==='function')){ setCloudStatus('Saved in this browser. Use Backup all now and then to keep a copy.'); return; }
   let db=null; try{ db=await window.claude.use('db'); }catch(e){}
-  if(!db){ setCloudStatus('Saved in this browser only.'); return; }
+  if(!db){ setCloudStatus('Saved in this browser. Use Backup all now and then to keep a copy.'); return; }
   cloud=db; setCloudStatus('Connecting to the site…');
   try{ const snap=await db.collection('projects').get(); mergeRemote(snap.docs,true); setCloudStatus('Saved to the site — available on all your devices.'); }
   catch(e){ cloudError(e); return; }
@@ -796,6 +797,18 @@ async function makePNG(){
   return new Promise(res=>c.toBlob(b=>res(b),'image/png'));
 }
 $('#png').addEventListener('click',()=>busy($('#png'),'…',async()=>{ try{ const blob=await makePNG(); if(await deliver(baseName()+'.png',blob)) toast('PNG saved'); }catch(e){ exportError(e,'PNG'); } }));
+// ---------- backup / restore (all projects in one file) ----------
+$('#pBackup').addEventListener('click',()=>busy($('#pBackup'),'…',async()=>{ save(); try{ const body=JSON.stringify({app:'myevents-planner',version:1,exported:new Date().toISOString(),projects:store.projects},null,1);
+  const d=new Date(); const stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  if(await deliver('myevents-projects-'+stamp+'.json',new Blob([body],{type:'application/json'}))) toast(store.projects.length+' project'+(store.projects.length===1?'':'s')+' backed up'); }catch(e){ exportError(e,'backup'); } }));
+$('#pRestore').addEventListener('click',()=>{ const f=$('#restoreFile'); f.value=''; f.click(); });
+$('#restoreFile').addEventListener('change',async e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return;
+  try{ const j=JSON.parse(await f.text()); const list=Array.isArray(j.projects)?j.projects:(Array.isArray(j)?j:null); if(!list) throw new Error('not a planner backup');
+    let added=0,updated=0; list.forEach(q=>{ if(!q||!q.data||!q.data.room||!Array.isArray(q.data.items)) return; const id=q.id||uid(); const ex=store.projects.find(x=>x.id===id);
+      if(!ex){ store.projects.push({id,updated:q.updated||Date.now(),data:normalize(q.data)}); added++; } else if((q.updated||0)>(ex.updated||0)){ ex.updated=q.updated; ex.data=normalize(q.data); updated++; } });
+    saveStore(); state=normalize(curProj().data); fillRoomInputs(); renderSel(); refresh(); renderProjects(); store.projects.forEach(q=>scheduleCloud&&cloud&&pushProject(q.id));
+    toast(`Restored: ${added} added, ${updated} updated`); }
+  catch(err){ toast('That file isn\u2019t a planner backup.'); } });
 
 // ---------- init ----------
 fillRoomInputs(); renderSel(); refreshStats(); drawSidebarLogo(); draw(); renderProjects(); initCloud();
