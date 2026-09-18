@@ -90,6 +90,23 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .tile:hover{border-color:var(--gold);background:var(--gold-soft)}
 .tile canvas{width:34px;height:34px;display:block}
 .corners{display:grid;gap:4px;margin-top:6px}
+.tabrow{display:flex;gap:6px;align-items:flex-start;margin-bottom:8px}
+.tabrow .tabs{margin:0;flex:1}
+.tabrow .btn{flex:none;padding:4px 9px;font-size:11px;border-radius:999px}
+.glist{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:6px;margin-top:8px;background:var(--field)}
+.ghead{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;font-weight:600;font-size:11.5px}
+.ghead .cnt{margin-left:auto;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.ghead.over .cnt{color:var(--danger)}
+.guest{display:grid;grid-template-columns:1fr auto auto;gap:4px;align-items:center;padding:3px 6px 3px 8px;border-bottom:1px solid var(--line)}
+.guest input{padding:3px 6px;border-color:transparent;background:transparent}
+.guest input:hover,.guest input:focus{border-color:var(--line-strong);background:var(--panel)}
+.guest select{width:auto;padding:3px 4px;font-size:11px;max-width:96px}
+.guest .btn{padding:2px 6px;min-width:0;border-color:transparent;color:var(--muted)}
+.guest .btn:hover{color:var(--danger);border-color:transparent;background:transparent}
+.guest .want{grid-column:1/-1;font-size:10.5px;color:var(--danger);padding:0 6px 2px}
+.gadd{display:grid;grid-template-columns:1fr auto auto;gap:4px;margin-top:8px}
+.gadd select{width:auto;max-width:110px}
+#pasteBox{margin-top:6px}
 .corner{display:grid;grid-template-columns:auto 1fr auto 1fr auto;gap:5px;align-items:center;font-size:11px}
 .corner .x{color:var(--muted)}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
@@ -132,7 +149,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
     <div class="logo"><canvas id="logoCv" width="300" height="450" aria-label="MY Events"></canvas></div>
     <div class="title"><b id="tTitle">Main Hall</b><span id="tStats"></span></div>
     <div class="tgroup"><button class="btn icon" id="undo" type="button" title="Undo (Ctrl+Z)">↶</button><button class="btn icon" id="redo" type="button" title="Redo (Ctrl+Y)">↷</button></div>
-    <div class="tgroup"><button class="btn" id="saveBtn" type="button" title="Save (Ctrl+S)">Save</button><span class="saved" id="savedAt"></span></div>
+    <div class="tgroup"><button class="btn" id="saveBtn" type="button" title="Saves into this browser's storage on this computer (Ctrl+S). Use Backup all for a file.">Save</button><span class="saved" id="savedAt" title="Saved in this browser's storage on this computer — not a file. Use Backup all in Project to download a file."></span></div>
     <div class="tgroup"><select id="paper" aria-label="Paper size"><option value="a4">A4</option><option value="a3">A3</option></select><button class="btn" id="png" type="button" title="Export the plan as a PNG image">PNG</button><button class="btn gold" id="dl" type="button">Download PDF</button></div>
   </header>
   <div class="main">
@@ -140,7 +157,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
       <details class="sec hot" id="secSel" open hidden><summary>Selected item<span class="cnt" id="selKind"></span></summary><div class="body" id="selBody"></div></details>
 
       <details class="sec" id="secAdd" open><summary>Add to the plan</summary><div class="body">
-        <div class="tabs" id="tabs"></div>
+        <div class="tabrow"><div class="tabs" id="tabs"></div><button class="btn" id="addText" type="button" title="Add a text box you can type anything into">+ Text box</button></div>
         <div id="tableOpts">
           <div class="row3">
             <div class="field"><label for="seats">Chairs</label><input id="seats" type="number" min="1" max="40" value="10"></div>
@@ -156,6 +173,21 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
         <div class="tiles mt" id="tiles"></div>
       </div></details>
 
+      <details class="sec" id="secGuests" open><summary>Guests<span class="cnt" id="guestCnt"></span></summary><div class="body">
+        <div class="actions" style="margin-top:0"><button class="btn" id="gImport" type="button" title="CSV or Excel: one column with the table, one with the name — or one row per table with the names across">Import spreadsheet</button><button class="btn" id="gPaste" type="button">Paste names</button><input type="file" id="guestFile" accept=".csv,.txt,.xlsx,.xls" hidden></div>
+        <div id="pasteBox" hidden><textarea id="pasteArea" rows="6" placeholder="Paste from Excel or type, e.g.
+Table 1
+David Cohen
+Sarah Cohen
+Table 2
+…
+
+or two columns: table, name"></textarea><div class="actions"><button class="btn gold" id="pasteGo" type="button">Add these names</button><button class="btn" id="pasteCancel" type="button">Cancel</button></div></div>
+        <div class="gadd"><input id="gName" placeholder="Add a name" maxlength="60"><select id="gTable" aria-label="Table"></select><button class="btn" id="gAdd" type="button">Add</button></div>
+        <div class="glist" id="glist" hidden></div>
+        <p class="note" id="gNote">No guests yet. Import a spreadsheet or paste a list; each table then shows who is on it and the PDF gets a seating‑list page.</p>
+        <div class="actions"><button class="btn danger" id="gClear" type="button">Remove all guests</button></div>
+      </div></details>
       <details class="sec" id="secRoom" open><summary>Room</summary><div class="body">
         <div class="row3">
           <div class="field"><label for="rW">Width</label><input id="rW" type="number" step="0.1" min="2"></div>
@@ -173,6 +205,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
         <div class="actions"><button class="btn" id="pNew" type="button">New</button><button class="btn" id="pDup" type="button">Duplicate</button><button class="btn danger" id="pDel" type="button">Delete</button></div>
         <div class="actions"><button class="btn" id="pBackup" type="button" title="Download every project as one file">Backup all</button><button class="btn" id="pRestore" type="button" title="Load projects from a backup file">Restore</button><input type="file" id="restoreFile" accept=".json,application/json" hidden></div>
         <p class="note" id="syncNote"></p>
+        <p class="note">Save keeps everything in this browser on this computer (no file, no dialog). Backup all downloads a file you can keep anywhere and Restore on another machine.</p>
       </div></details>
 
       <details class="sec" id="secSummary" open><summary>Summary</summary><div class="body">
@@ -276,6 +309,7 @@ function normalize(s){
   s.job=s.job||''; s.date=s.date||''; s.sel=null; s.units=s.units||'m'; s.paper=s.paper||'a4';
   const r=s.room||(s.room=blankRoom()); if(!r.cuts){ r.cuts={tl:null,tr:null,bl:null,br:null}; if(r.shape==='L'&&r.cut&&r.cut.w>0&&r.cut.d>0) r.cuts[r.cut.corner||'tr']={w:r.cut.w,d:r.cut.d}; } delete r.shape; delete r.cut;
   if(!Array.isArray(s.items)) s.items=[];
+  if(!Array.isArray(s.guests)) s.guests=[]; s.guests=s.guests.filter(g=>g&&typeof g.name==='string').map(g=>({id:g.id||uid(),name:g.name,table:g.table||null,want:g.want||null}));
   s.items=s.items.filter(it=>it&&DEFS[it.type]);
   const used=new Set(); s.items.forEach(it=>{ if(isTable(it)&&Number.isInteger(it.num)) used.add(it.num); });
   let n=1; s.items.forEach(it=>{ if(isTable(it)&&!Number.isInteger(it.num)){ while(used.has(n)) n++; it.num=n; used.add(n); } });
@@ -414,7 +448,7 @@ function drawItem(ctx,it,S,ox,oy,pal,opt){
     seatLayout(it).forEach(c=>drawChair(ctx,c,S,pal,lw));
     ctx.fillStyle=pal.table;
     if(isRound(it)){ ctx.beginPath(); ctx.arc(0,0,w/2,0,Math.PI*2); ctx.fill(); ctx.stroke(); } else { box(); ctx.fill(); ctx.stroke(); }
-    const name=tableName(it); const seatsTxt=it.seats+(it.seats===1?' seat':' seats');
+    const name=tableName(it); const gc=(state.guests||[]).reduce((a,g)=>a+(g.table===it.id?1:0),0); const seatsTxt=gc?`${gc} of ${it.seats}`:(it.seats+(it.seats===1?' seat':' seats'));
     ctx.save(); if(flip) ctx.rotate(Math.PI); ctx.fillStyle=pal.ink; ctx.textAlign='center'; ctx.textBaseline='middle';
     if(it.type==='poseur'){ const big=Math.max(7,Math.min(w*0.5,w/(name.length*0.7))); ctx.font=`500 ${big}px "Bodoni Moda", Didot, serif`; ctx.fillText(name,0,0); }
     else if(h>=S*0.9){
@@ -525,12 +559,13 @@ function curProj(){ return store.projects.find(q=>q.id===store.current)||store.p
 state=normalize(curProj().data);
 const byId=id=>state.items.find(i=>i.id===id);
 const lastJson=new Map(); const stateJson=s=>JSON.stringify(s,(k,v)=>k==='sel'?undefined:v);
-function saveStore(){ try{ localStorage.setItem('myevents-projects',JSON.stringify(store)); }catch(e){} }
-function markSaved(){ const d=new Date(); $('#savedAt').textContent='Saved '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+let storeOk=true;
+function saveStore(){ try{ const s=JSON.stringify(store); localStorage.setItem('myevents-projects',s); storeOk=localStorage.getItem('myevents-projects')===s; }catch(e){ storeOk=false; } if(!storeOk){ const el=$('#savedAt'); if(el) el.textContent='NOT saved — browser storage blocked'; } return storeOk; }
+function markSaved(){ if(!storeOk) return; const d=new Date(); $('#savedAt').textContent='Saved '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+' · this browser'; }
 function save(){ const pr=curProj(); pr.data=state; const js=stateJson(state); if(lastJson.get(pr.id)!==js){ lastJson.set(pr.id,js); pr.updated=Date.now(); scheduleCloud(pr.id); markSaved(); } saveStore(); }
 function projName(pr){ const d=pr.data||{}; const n=[d.job,(d.room||{}).name].filter(Boolean).join(' – ')||'Untitled'; return d.date? n+' · '+fmtDate(d.date) : n; }
 function renderProjects(){ const sel=$('#projSel'); if(document.activeElement===sel) return; sel.innerHTML=''; store.projects.forEach(q=>{ const o=document.createElement('option'); o.value=q.id; o.textContent=projName(q); if(q.id===store.current) o.selected=true; sel.appendChild(o); }); }
-function openProject(id){ save(); store.current=id; state=normalize(curProj().data); saveStore(); closeInline(); fillRoomInputs(); renderSel(); zoomFit(); refresh(); renderProjects(); histReset(); }
+function openProject(id){ save(); store.current=id; state=normalize(curProj().data); saveStore(); closeInline(); fillRoomInputs(); renderSel(); zoomFit(); lastTableSig=''; refresh(); renderProjects(); histReset(); }
 function newProject(data){ const pr={id:uid(),updated:Date.now(),data:normalize(data)}; store.projects.push(pr); openProject(pr.id); }
 
 // ---------- cloud sync (only when the page runs inside claude.ai; elsewhere this is a no-op) ----------
@@ -565,7 +600,7 @@ function updateUndo(){ $('#undo').disabled=!hist.undo.length&&!hist.timer; $('#r
 function histReset(){ hist.undo.length=0; hist.redo.length=0; clearTimeout(hist.timer); hist.timer=null; hist.last=stateJson(state); updateUndo(); }
 function histRecord(){ clearTimeout(hist.timer); hist.timer=setTimeout(histCommit,500); updateUndo(); }
 function histCommit(){ clearTimeout(hist.timer); hist.timer=null; const s=stateJson(state); if(s!==hist.last){ if(hist.last!=null){ hist.undo.push(hist.last); if(hist.undo.length>100) hist.undo.shift(); } hist.last=s; hist.redo.length=0; } updateUndo(); }
-function histApply(s){ hist.last=s; const keep=state.sel; state=normalize(JSON.parse(s)); if(keep&&byId(keep)) state.sel=keep; curProj().data=state; closeInline(); fillRoomInputs(); renderSel(); refresh(); }
+function histApply(s){ hist.last=s; const keep=state.sel; state=normalize(JSON.parse(s)); if(keep&&byId(keep)) state.sel=keep; curProj().data=state; closeInline(); fillRoomInputs(); renderSel(); lastTableSig=''; refresh(); }
 function undo(){ histCommit(); if(!hist.undo.length) return; hist.redo.push(hist.last); histApply(hist.undo.pop()); updateUndo(); }
 function redo(){ histCommit(); if(!hist.redo.length) return; hist.undo.push(hist.last); histApply(hist.redo.pop()); updateUndo(); }
 $('#undo').addEventListener('click',undo); $('#redo').addEventListener('click',redo);
@@ -592,7 +627,8 @@ function refreshStats(){
   $('#tStats').textContent=[state.job?state.room.name:'',fmtDate(state.date),`${fmtU(state.room.w)} × ${fmtU(state.room.d)}`,`${tables.length} table${tables.length===1?'':'s'}`,`${seats} seats`].filter(Boolean).join(' · ');
   return {tables,seats,groups,rowSeats};
 }
-function refresh(){ refreshStats(); draw(); save(); renderProjects(); histRecord(); }
+let lastTableSig='';
+function refresh(){ refreshStats(); draw(); save(); renderProjects(); histRecord(); const sig=state.items.filter(isTable).map(t=>t.id+':'+t.num+':'+t.label+':'+t.seats).join('|')+'#'+(state.guests||[]).length; if(sig!==lastTableSig){ lastTableSig=sig; renderGuests(); } }
 
 // ---------- room inputs ----------
 function fillRoomInputs(){ const r=state.room; $('#rName').value=r.name; $('#jobName').value=state.job||''; $('#evDate').value=state.date||''; $('#units').value=state.units; $('#paper').value=state.paper||'a4';
@@ -628,10 +664,12 @@ function renderTiles(){ const box=$('#tiles'); box.innerHTML='';
 function renderIcons(){ document.querySelectorAll('#tiles .tile').forEach((b,i)=>{ const type=Object.keys(DEFS).filter(k=>DEFS[k].cat===tab)[i]; if(type) drawIcon(b.querySelector('canvas'),type); }); }
 function nextNum(){ const used=new Set(state.items.filter(isTable).map(t=>t.num)); let n=1; while(used.has(n)) n++; return n; }
 function addItem(type,o){ const it=newItem(type,0,0,o); if(isTable(it)) it.num=nextNum(); placeFree(it); state.items.push(it); state.sel=it.id; return it; }
+$('#addText').addEventListener('click',()=>{ addFromTile('text'); const f=$('#sLabel'); if(f){ f.focus(); f.select(); } });
 function addFromTile(type){ const def=DEFS[type]; closeInline();
   const seats=Math.min(40,Math.max(1,parseInt($('#seats').value)||10)); const qty=(def.table||type==='chairrow')?Math.min(80,Math.max(1,parseInt($('#qty').value)||1)):1; const pk=$('#preset').value;
   for(let i=0;i<qty;i++){ const it=addItem(type,(def.table||def.row)?{seats}:{}); if(def.table&&pk!=='auto'){ applyPreset(it,pk); clampToRoom(it); } }
   renderSel(); refresh(); toast(qty>1?`${qty} × ${def.name.toLowerCase()} added`:`${def.name} added — drag it into place`); }
+
 
 // ---------- selection panel ----------
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -787,7 +825,7 @@ document.addEventListener('keydown',e=>{
 
 // ---------- save, toast, project buttons ----------
 let tT; function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('on'); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove('on'),2800); }
-function saveNow(){ histCommit(); const pr=curProj(); pr.data=state; lastJson.set(pr.id,stateJson(state)); pr.updated=Date.now(); saveStore(); markSaved(); if(cloud){ clearTimeout(cloudTimer); pushProject(pr.id); } toast('Saved'); }
+function saveNow(){ histCommit(); const pr=curProj(); pr.data=state; lastJson.set(pr.id,stateJson(state)); pr.updated=Date.now(); const ok=saveStore(); markSaved(); if(cloud){ clearTimeout(cloudTimer); pushProject(pr.id); } toast(ok?'Saved in this browser\u2019s storage on this computer. Use Backup all for a file copy.':'Could not save — this browser is blocking storage (private window?). Use Backup all to download a file.'); }
 $('#saveBtn').addEventListener('click',saveNow);
 const arm=(id,label,fn)=>{ let t=null; $('#'+id).addEventListener('click',()=>{ const b=$('#'+id); if(t){ clearTimeout(t); t=null; b.textContent=label; fn(); return; } b.textContent='Click again to confirm'; t=setTimeout(()=>{ t=null; b.textContent=label; },3000); }); };
 arm('clear','Clear room',()=>{ state.items=[]; state.sel=null; closeInline(); renderSel(); refresh(); toast('Room cleared — Undo brings it back'); });
@@ -799,6 +837,48 @@ $('#pNew').addEventListener('click',()=>{ const s=blank(); s.units=state.units; 
 $('#pDup').addEventListener('click',()=>{ save(); const d=JSON.parse(JSON.stringify(state)); d.job=(d.job||d.room.name||'Untitled')+' (copy)'; newProject(d); toast('Project duplicated'); });
 $('#renumber').addEventListener('click',()=>{ const tables=state.items.filter(isTable).slice().sort((a,b)=>a.y-b.y); const rows=[]; tables.forEach(t=>{ const r=rows.find(r=>Math.abs(r.y-t.y)<1.2); if(r) r.items.push(t); else rows.push({y:t.y,items:[t]}); });
   let n=1; rows.forEach(r=>r.items.sort((a,b)=>a.x-b.x).forEach(t=>{ t.num=n++; })); renderSel(); refresh(); toast('Tables numbered left to right, front to back'); });
+
+// ---------- guests ----------
+function tablesSorted(){ return state.items.filter(isTable).slice().sort((p,q)=>(p.num||0)-(q.num||0)||tableName(p).localeCompare(tableName(q))); }
+function tableTitle(t){ const n=Number.isInteger(t.num)?'Table '+t.num:''; const l=(t.label||'').trim(); return n&&l? n+' · '+l : (n||l||'Table'); }
+function tableByKey(key){ if(key==null) return null; const k=String(key).trim().toLowerCase().replace(/^(table|tbl)\s*[:#.\-]?\s*/,''); if(!k) return null;
+  return state.items.find(t=>isTable(t)&&(String(t.num)===k||(t.label||'').trim().toLowerCase()===k))||null; }
+function parseRows(rows){ let cur=null, ti=-1, ni=-1; const out=[];
+  rows.forEach((raw,ri)=>{ const all=(raw||[]).map(c=>String(c==null?'':c).trim()); const cells=all.filter(c=>c!==''); if(!cells.length) return;
+    if(ri===0&&cells.length>=2){ const t=all.findIndex(c=>/^(table|tbl|table\s*(no|number|#)\.?)$/i.test(c)); const n=all.findIndex(c=>/^(name|names|guest|guests|guest\s*name)$/i.test(c)); if(t>=0&&n>=0){ ti=t; ni=n; return; } }
+    if(ti>=0){ const key=all[ti]||'', name=all[ni]||''; if(name) out.push({name,key:key||cur}); if(key&&!name) cur=key; return; }
+    if(cells.length===1){ const m=/^(?:table|tbl)\s*[:#.\-]?\s*(.+)$/i.exec(cells[0]); if(m){ cur=m[1].trim(); return; } out.push({name:cells[0],key:cur}); return; }
+    const key=cells[0].replace(/^(?:table|tbl)\s*[:#.\-]?\s*/i,'').trim(); cells.slice(1).forEach(n=>out.push({name:n,key})); });
+  return out; }
+function parseCsv(text){ const lines=text.replace(/\r\n?/g,'\n').split('\n'); const first=lines.find(l=>l.trim())||''; const delim=first.includes('\t')?'\t':((first.split(';').length>first.split(',').length)?';':',');
+  return lines.map(line=>{ const cells=[]; let cur='',q=false; for(let i=0;i<line.length;i++){ const ch=line[i]; if(q){ if(ch==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else q=false; } else cur+=ch; } else if(ch==='"') q=true; else if(ch===delim){ cells.push(cur); cur=''; } else cur+=ch; } cells.push(cur); return cells; }); }
+function addGuests(parsed){ let seated=0, unseated=0; parsed.forEach(p=>{ const name=p.name.replace(/\s+/g,' ').trim(); if(!name) return; const t=tableByKey(p.key); state.guests.push({id:uid(),name,table:t?t.id:null,want:t?null:(p.key||null)}); if(t) seated++; else unseated++; });
+  renderGuests(); refresh(); toast(seated+unseated? `${seated+unseated} names added${unseated?` — ${unseated} not matched to a table yet`:''}` : 'No names found in that'); }
+function loadXlsx(){ return new Promise((res,rej)=>{ if(window.XLSX) return res(window.XLSX); const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=()=>res(window.XLSX); s.onerror=()=>rej(new Error('Could not load the spreadsheet reader')); document.head.appendChild(s); }); }
+$('#gImport').addEventListener('click',()=>{ const f=$('#guestFile'); f.value=''; f.click(); });
+$('#guestFile').addEventListener('change',async e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return;
+  try{ let rows; if(/\.xlsx?$/i.test(f.name)){ const X=await loadXlsx(); const wb=X.read(await f.arrayBuffer(),{type:'array'}); rows=[]; wb.SheetNames.forEach(n=>{ rows=rows.concat(X.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false,defval:''})); }); }
+    else rows=parseCsv(await f.text()); addGuests(parseRows(rows)); }
+  catch(err){ toast('Could not read that file: '+(err.message||err)); } });
+$('#gPaste').addEventListener('click',()=>{ $('#pasteBox').hidden=false; $('#pasteArea').focus(); });
+$('#pasteCancel').addEventListener('click',()=>{ $('#pasteBox').hidden=true; });
+$('#pasteGo').addEventListener('click',()=>{ const t=$('#pasteArea').value; if(!t.trim()) return; addGuests(parseRows(parseCsv(t))); $('#pasteArea').value=''; $('#pasteBox').hidden=true; });
+$('#gAdd').addEventListener('click',()=>{ const n=$('#gName').value.replace(/\s+/g,' ').trim(); if(!n) return; const tid=$('#gTable').value||null; state.guests.push({id:uid(),name:n,table:tid||null,want:null}); $('#gName').value=''; renderGuests(); refresh(); });
+$('#gName').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('#gAdd').click(); } });
+arm('gClear','Remove all guests',()=>{ state.guests=[]; renderGuests(); refresh(); toast('Guest list cleared — Undo brings it back'); });
+function tableOptions(sel,current){ sel.innerHTML=''; const o0=document.createElement('option'); o0.value=''; o0.textContent='Unseated'; sel.appendChild(o0);
+  tablesSorted().forEach(t=>{ const o=document.createElement('option'); o.value=t.id; o.textContent=tableTitle(t).replace('Table ','T'); if(t.id===current) o.selected=true; sel.appendChild(o); }); }
+function renderGuests(){ const g=state.guests||[]; const list=$('#glist'); const tables=tablesSorted(); tableOptions($('#gTable'),$('#gTable').value);
+  $('#guestCnt').textContent=g.length?g.length+' guests':''; $('#gNote').hidden=!!g.length; list.hidden=!g.length; list.innerHTML=''; if(!g.length) return;
+  const groups=tables.map(t=>({t,items:g.filter(x=>x.table===t.id)})).filter(x=>x.items.length); const un=g.filter(x=>!x.table||!byId(x.table));
+  const block=(title,items,t)=>{ const h=document.createElement('div'); h.className='ghead'+((t&&items.length>t.seats)?' over':''); h.innerHTML=`<span>${esc(title)}</span><span class="cnt">${items.length}${t?' / '+t.seats:''}</span>`; list.appendChild(h);
+    items.forEach(x=>{ const row=document.createElement('div'); row.className='guest'; const inp=document.createElement('input'); inp.value=x.name; inp.maxLength=60; inp.setAttribute('aria-label','Guest name');
+      inp.addEventListener('change',()=>{ x.name=inp.value.replace(/\s+/g,' ').trim(); if(!x.name){ state.guests=state.guests.filter(y=>y!==x); renderGuests(); } refresh(); });
+      const sel=document.createElement('select'); tableOptions(sel,x.table); sel.setAttribute('aria-label','Table'); sel.addEventListener('change',()=>{ x.table=sel.value||null; x.want=null; renderGuests(); refresh(); });
+      const del=document.createElement('button'); del.type='button'; del.className='btn'; del.textContent='×'; del.title='Remove'; del.addEventListener('click',()=>{ state.guests=state.guests.filter(y=>y!==x); renderGuests(); refresh(); });
+      row.appendChild(inp); row.appendChild(sel); row.appendChild(del); if(!t&&x.want){ const w=document.createElement('div'); w.className='want'; w.textContent='Spreadsheet said “'+x.want+'” — no table with that number or name'; row.appendChild(w); } list.appendChild(row); }); };
+  groups.forEach(gr=>block(tableTitle(gr.t),gr.items,gr.t)); if(un.length) block('Not seated yet',un,null); }
+
 
 // ---------- export: PDF, PNG, backup ----------
 const baseName=()=>(([state.job,state.room.name].filter(Boolean).join(' ')||'room plan').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')||'room-plan')+'-plan';
@@ -831,7 +911,24 @@ async function makePDF(){
   const bd=Object.keys(groups).map(k=>groups[k]+' × '+k).join('  ·  ');
   pdf.text(pdf.splitTextToSize((bd?bd+'   ·   ':'')+`approx. scale 1:${Math.round(1000/(v.S/ppm))}`,PW-2*M-70).slice(0,2),M,footTop+2);
   pdf.text(`MY Events  ·  ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`,PW-M,footTop+2,{align:'right'});
+  if((state.guests||[]).length) addSeatingPages(pdf,PW,PH,M,A3);
   return pdf;
+}
+function addSeatingPages(pdf,PW,PH,M,A3){
+  const g=state.guests; const groups=tablesSorted().map(t=>({title:tableTitle(t),seats:t.seats,names:g.filter(x=>x.table===t.id).map(x=>x.name)})).filter(x=>x.names.length);
+  const un=g.filter(x=>!x.table||!byId(x.table)).map(x=>x.name); if(un.length) groups.push({title:'Not seated yet',seats:0,names:un});
+  const cols=PW>PH?3:2, gap=8, colW=(PW-2*M-(cols-1)*gap)/cols; const fsT=A3?12:10.5, fsN=A3?10.5:9; const lhT=fsT*0.5, lhN=fsN*0.46; const top=M+22, bottom=PH-M-6;
+  let page=0; const header=()=>{ pdf.addPage(); page++; pdf.setFont('helvetica','bold'); pdf.setFontSize(A3?16:13); pdf.setTextColor(15,17,20); pdf.text((state.job||state.room.name||'Room plan')+'  —  Seating list',M,M+5);
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor(110,105,95); const sub=[state.job?state.room.name:'',fmtDate(state.date,true),g.length+' guests'].filter(Boolean).join('   ·   '); pdf.text(sub,M,M+10.5);
+    pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.4); pdf.line(M,M+13,PW-M,M+13); pdf.setFontSize(8); pdf.text('MY Events  ·  seating list p.'+page,PW-M,PH-M+1,{align:'right'}); };
+  header(); let col=0, y=top;
+  const newCol=()=>{ col++; y=top; if(col>=cols){ header(); col=0; } };
+  groups.forEach(gr=>{ const need=lhT+3.5+Math.min(gr.names.length,6)*lhN; if(y+need>bottom) newCol();
+    const x=M+col*(colW+gap); pdf.setFont('helvetica','bold'); pdf.setFontSize(fsT); pdf.setTextColor(15,17,20); pdf.text(pdf.splitTextToSize(gr.title+(gr.seats?'   ('+gr.names.length+' of '+gr.seats+')':'   ('+gr.names.length+')'),colW)[0],x,y);
+    pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.3); pdf.line(x,y+1.6,x+colW*0.35,y+1.6); y+=lhT+3.5;
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(fsN); pdf.setTextColor(40,42,48);
+    gr.names.forEach((n,i)=>{ if(y+lhN>bottom){ newCol(); pdf.setFont('helvetica','normal'); pdf.setFontSize(fsN); pdf.setTextColor(40,42,48); } const xx=M+col*(colW+gap); pdf.text(pdf.splitTextToSize((i+1)+'.  '+n,colW)[0],xx,y); y+=lhN; });
+    y+=lhN*1.4; });
 }
 async function makePNG(){
   const {w,d}=state.room; const W=2400, HDR=330, pad=0.9; const areaH=Math.min(3600,Math.round(W*(d+2*pad)/(w+2*pad)));
@@ -868,7 +965,7 @@ $('#restoreFile').addEventListener('change',async e=>{ const f=e.target.files&&e
 document.querySelectorAll('details.sec').forEach(d=>{ if(d.id==='secSel') return; try{ const v=localStorage.getItem('myevents-sec-'+d.id); if(v==='0') d.open=false; }catch(e){} d.addEventListener('toggle',()=>{ try{ localStorage.setItem('myevents-sec-'+d.id,d.open?'1':'0'); }catch(e){} }); });
 
 // ---------- init ----------
-saveStore(); renderTabs(); renderTiles(); fillRoomInputs(); renderSel(); refreshStats(); draw(); renderProjects(); histReset(); markSaved(); drawHeaderLogo(); initCloud();
+saveStore(); renderTabs(); renderTiles(); fillRoomInputs(); renderSel(); renderGuests(); refreshStats(); draw(); renderProjects(); histReset(); markSaved(); drawHeaderLogo(); initCloud();
 new ResizeObserver(()=>{ closeInline(); draw(); }).observe($('.stage'));
 const themed=()=>{ draw(); drawHeaderLogo(); renderIcons(); };
 try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',themed); }catch(e){}
