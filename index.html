@@ -104,6 +104,19 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 #gFind{max-width:190px}
 .pastebox{max-width:520px;margin-bottom:14px}
 .gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;align-items:start}
+.chk{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap;padding:0 4px}
+.chk input{width:auto;margin:0}
+.zones{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.zone{border:1px dashed var(--line-strong);border-radius:10px;padding:10px;min-height:140px;transition:background .15s,border-color .15s}
+.zone.dropover{border-color:var(--gold);background:var(--gold-soft)}
+.zone h2{margin:0 0 10px;font-size:11.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;gap:10px;align-items:baseline}
+.zone h2 span{font-weight:500;letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums}
+.zone.wide{grid-column:1/-1;min-height:0}
+.zone.plain{border:0;padding:0}
+.gcard header.tdrag{cursor:grab}
+.gcard header.tdrag b::before{content:"⋮";font-family:Montserrat,sans-serif;font-size:12px;color:var(--line-strong);margin-right:5px;vertical-align:middle}
+.gcard.dragging{opacity:.4}
+@media (max-width:900px){.zones{grid-template-columns:1fr}}
 .gcard{background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);transition:opacity .15s}
 .gcard.dim{opacity:.35}
 .gcard.flash{outline:2px solid var(--gold);outline-offset:2px}
@@ -259,6 +272,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
       <div class="gtool">
         <div class="gtitle"><b id="gvTitle"></b><span id="gvSub"></span></div>
         <input id="gFind" placeholder="Find a name" aria-label="Find a name">
+        <label class="chk" title="Sort whole tables into a men's side and a women's side by dragging them"><input type="checkbox" id="gSplit"> Men / women</label>
         <button class="btn" id="gImport" type="button" title="CSV or Excel: a table column and a name column (a seat column is optional), one row per table with the names across, or “Table 1” lines followed by names">Import spreadsheet</button>
         <button class="btn" id="gPaste" type="button">Paste names</button>
         <button class="btn" id="gExport" type="button" title="Table, seat, name — opens in Excel">Export list (CSV)</button>
@@ -365,7 +379,7 @@ function normalize(s){
   s.job=s.job||''; s.date=s.date||''; s.sel=null; s.units=s.units||'m'; s.paper=s.paper||'a4';
   const r=s.room||(s.room=blankRoom()); if(!r.cuts){ r.cuts={tl:null,tr:null,bl:null,br:null}; if(r.shape==='L'&&r.cut&&r.cut.w>0&&r.cut.d>0) r.cuts[r.cut.corner||'tr']={w:r.cut.w,d:r.cut.d}; } delete r.shape; delete r.cut;
   if(!Array.isArray(s.items)) s.items=[];
-  if(!Array.isArray(s.guests)) s.guests=[]; s.guests=s.guests.filter(g=>g&&typeof g.name==='string').map(g=>({id:g.id||uid(),name:g.name,table:g.table||null,seat:Number.isInteger(g.seat)?g.seat:null,want:g.want||null}));
+  s.split=!!s.split; if(!Array.isArray(s.guests)) s.guests=[]; s.guests=s.guests.filter(g=>g&&typeof g.name==='string').map(g=>({id:g.id||uid(),name:g.name,table:g.table||null,seat:Number.isInteger(g.seat)?g.seat:null,want:g.want||null}));
   s.items=s.items.filter(it=>it&&DEFS[it.type]);
   const used=new Set(); s.items.forEach(it=>{ if(isTable(it)&&Number.isInteger(it.num)) used.add(it.num); });
   let n=1; s.items.forEach(it=>{ if(isTable(it)&&!Number.isInteger(it.num)){ while(used.has(n)) n++; it.num=n; used.add(n); } });
@@ -943,9 +957,10 @@ $('#gPaste').addEventListener('click',()=>{ $('#pasteBox').hidden=false; $('#pas
 $('#pasteCancel').addEventListener('click',()=>{ $('#pasteBox').hidden=true; });
 $('#pasteGo').addEventListener('click',()=>{ const t=$('#pasteArea').value; if(!t.trim()) return; $('#pasteArea').value=''; $('#pasteBox').hidden=true; addGuests(parseRows(parseCsv(t))); });
 arm('gClear','Remove all',()=>{ state.guests=[]; renderGuestView(); guestChanged(); toast('Guest list cleared — Undo brings it back'); });
-$('#gExport').addEventListener('click',()=>busy($('#gExport'),'…',async()=>{ normalizeSeats(); const q=s=>'"'+String(s).replace(/"/g,'""')+'"'; const rows=[['Table','Seat','Name']];
-  tablesSorted().forEach(t=>{ state.guests.filter(g=>g.table===t.id).sort((p,r)=>(p.seat||99)-(r.seat||99)).forEach(g=>rows.push([tableName(t),g.seat||'',g.name])); });
-  state.guests.filter(g=>!g.table).forEach(g=>rows.push(['','',g.name]));
+$('#gExport').addEventListener('click',()=>busy($('#gExport'),'…',async()=>{ normalizeSeats(); const q=s=>'"'+String(s).replace(/"/g,'""')+'"'; const sp=!!state.split; const secName=t=>t.section==='men'?'Men':t.section==='women'?'Women':''; const rows=[sp?['Section','Table','Seat','Name']:['Table','Seat','Name']];
+  const order=sp? tablesSorted().sort((p,q)=>({men:0,women:1}[p.section]??2)-({men:0,women:1}[q.section]??2)) : tablesSorted();
+  order.forEach(t=>{ state.guests.filter(g=>g.table===t.id).sort((p,r)=>(p.seat||99)-(r.seat||99)).forEach(g=>rows.push(sp?[secName(t),tableName(t),g.seat||'',g.name]:[tableName(t),g.seat||'',g.name])); });
+  state.guests.filter(g=>!g.table).forEach(g=>rows.push(sp?['','','',g.name]:['','',g.name]));
   const csv='﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n'); try{ if(await deliver(baseName().replace(/-plan$/,'')+'-guests.csv',new Blob([csv],{type:'text/csv'}))) toast('Guest list exported'); }catch(e){ exportError(e,'CSV'); } }));
 $('#gPdf').addEventListener('click',()=>busy($('#gPdf'),'Preparing…',async()=>{ try{ const {jsPDF}=window.jspdf; const A3=(state.paper||'a4')==='a3'; const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:state.paper||'a4',compress:true});
   const PW=pdf.internal.pageSize.getWidth(), PH=pdf.internal.pageSize.getHeight(); addSeatingPages(pdf,PW,PH,A3?16:12,A3); pdf.deletePage(1);
@@ -954,7 +969,8 @@ function tableOptions(sel,current){ sel.innerHTML=''; const o0=document.createEl
   tablesSorted().forEach(t=>{ const o=document.createElement('option'); o.value=t.id; o.textContent='T'+tableName(t); if(t.id===current) o.selected=true; sel.appendChild(o); }); }
 function guestChanged(){ refreshStats(); draw(); save(); histRecord(); updateGuestCounts(); }
 function updateGuestCounts(){ const g=state.guests; const tables=state.items.filter(isTable); $('#vGuestCnt').textContent=g.length?g.length:'';
-  $('#gvTitle').textContent=state.job||state.room.name||'Guests'; $('#gvSub').textContent=`${g.length} guest${g.length===1?'':'s'} · ${tables.length} table${tables.length===1?'':'s'} · ${tables.reduce((a,t)=>a+(t.seats|0),0)} seats · ${g.filter(x=>!x.table).length} not seated`;
+  $('#gvTitle').textContent=state.job||state.room.name||'Guests'; const men=g.filter(x=>{ const t=byId(x.table); return t&&t.section==='men'; }).length, women=g.filter(x=>{ const t=byId(x.table); return t&&t.section==='women'; }).length;
+  $('#gvSub').textContent=`${g.length} guest${g.length===1?'':'s'} · ${tables.length} table${tables.length===1?'':'s'} · ${tables.reduce((a,t)=>a+(t.seats|0),0)} seats · ${g.filter(x=>!x.table).length} not seated`+(state.split?` · men ${men} · women ${women}`:'');
   document.querySelectorAll('#gcards .gcard[data-table]').forEach(card=>{ const t=byId(card.dataset.table); if(!t) return; const n=g.filter(x=>x.table===t.id).length; card.querySelector('.cnt').textContent=n+' / '+t.seats; card.classList.toggle('over',n>t.seats); });
   const uc=document.querySelector('#gcards .gcard.unseated .cnt'); if(uc) uc.textContent=g.filter(x=>!x.table).length; }
 let dragGuest=null;
@@ -976,16 +992,29 @@ function seatRow(t,k,gu,isAdd){ const row=document.createElement('div'); row.cla
   inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const rows=[...document.querySelectorAll('#gcards .seat input')]; const i=rows.indexOf(inp); inp.blur(); if(!isAdd&&rows[i+1]) rows[i+1].focus(); } });
   sel.addEventListener('change',()=>{ if(!gu) return; gu.table=sel.value||null; gu.seat=null; gu.want=null; normalizeSeats(); renderGuestView(); guestChanged(); });
   return row; }
-function renderGuestView(){ normalizeSeats(); const box=$('#gcards'); box.innerHTML=''; const tables=tablesSorted(); const g=state.guests; $('#gEmpty').hidden=!!tables.length;
-  tables.forEach(t=>{ const gs=g.filter(x=>x.table===t.id); const card=document.createElement('section'); card.className='gcard'; card.dataset.table=t.id;
-    card.innerHTML=`<header><b>${esc(String(Number.isInteger(t.num)?t.num:'·'))}</b><span class="lbl">${esc((t.label||'').trim()||DEFS[t.type].name)}</span><span class="cnt"></span></header>`; dropTarget(card.querySelector('header'),t.id,null);
-    for(let k=1;k<=t.seats;k++) card.appendChild(seatRow(t,k,gs.find(x=>x.seat===k)||null,false));
-    gs.filter(x=>!x.seat).forEach(gu=>card.appendChild(seatRow(t,null,gu,false)));
-    box.appendChild(card); });
-  const un=g.filter(x=>!x.table); const card=document.createElement('section'); card.className='gcard unseated'; card.innerHTML=`<header><b>—</b><span class="lbl">Not seated yet</span><span class="cnt"></span></header>`; dropTarget(card.querySelector('header'),null,null);
+let dragTable=null;
+function dropZone(el,key){ el.addEventListener('dragover',e=>{ if(!dragTable) return; e.preventDefault(); e.dataTransfer.dropEffect='move'; el.classList.add('dropover'); }); el.addEventListener('dragleave',e=>{ if(!el.contains(e.relatedTarget)) el.classList.remove('dropover'); });
+  el.addEventListener('drop',e=>{ if(!dragTable) return; e.preventDefault(); el.classList.remove('dropover'); const t=byId(dragTable); dragTable=null; if(t&&(t.section||null)!==(key||null)){ t.section=key||null; renderGuestView(); guestChanged(); } }); }
+function guestCard(t){ const g=state.guests; const gs=g.filter(x=>x.table===t.id); const card=document.createElement('section'); card.className='gcard'; card.dataset.table=t.id;
+  card.innerHTML=`<header><b>${esc(String(Number.isInteger(t.num)?t.num:'·'))}</b><span class="lbl">${esc((t.label||'').trim()||DEFS[t.type].name)}</span><span class="cnt"></span></header>`; const hd=card.querySelector('header'); dropTarget(hd,t.id,null);
+  if(state.split){ hd.classList.add('tdrag'); hd.draggable=true; hd.title='Drag this table to Men or Women'; hd.addEventListener('dragstart',e=>{ dragTable=t.id; e.dataTransfer.setData('text/plain','table:'+t.id); e.dataTransfer.effectAllowed='move'; card.classList.add('dragging'); }); hd.addEventListener('dragend',()=>{ card.classList.remove('dragging'); dragTable=null; }); }
+  for(let k=1;k<=t.seats;k++) card.appendChild(seatRow(t,k,gs.find(x=>x.seat===k)||null,false));
+  gs.filter(x=>!x.seat).forEach(gu=>card.appendChild(seatRow(t,null,gu,false)));
+  return card; }
+function unseatedCard(){ const un=state.guests.filter(x=>!x.table); const card=document.createElement('section'); card.className='gcard unseated'; card.innerHTML=`<header><b>—</b><span class="lbl">Not seated yet</span><span class="cnt"></span></header>`; dropTarget(card.querySelector('header'),null,null);
   un.forEach(gu=>{ const row=seatRow(null,null,gu,false); if(gu.want){ row.querySelector('.n').textContent='T'+gu.want+'?'; row.querySelector('.n').title='The spreadsheet said “'+gu.want+'” — no table with that number or name'; } card.appendChild(row); });
-  card.appendChild(seatRow(null,null,null,true)); box.appendChild(card);
+  card.appendChild(seatRow(null,null,null,true)); return card; }
+function sectionOf(t){ return t.section==='men'||t.section==='women'?t.section:''; }
+function renderGuestView(){ normalizeSeats(); const box=$('#gcards'); box.innerHTML=''; const tables=tablesSorted(); $('#gEmpty').hidden=!!tables.length; $('#gSplit').checked=!!state.split;
+  if(!state.split){ box.className='gcards'; tables.forEach(t=>box.appendChild(guestCard(t))); box.appendChild(unseatedCard()); }
+  else { box.className='zones';
+    const zone=(key,title,cls)=>{ const z=document.createElement('div'); z.className='zone'+(cls?' '+cls:''); const list=tables.filter(t=>sectionOf(t)===key); const seats=list.reduce((a,t)=>a+t.seats,0); const guests=state.guests.filter(x=>list.some(t=>t.id===x.table)).length;
+      if(title) z.innerHTML=`<h2>${title}<span>${list.length} table${list.length===1?'':'s'} · ${guests} / ${seats} seats</span></h2>`; const grid=document.createElement('div'); grid.className='gcards'; list.forEach(t=>grid.appendChild(guestCard(t))); z.appendChild(grid); dropZone(z,key); return {z,n:list.length}; };
+    const u=zone('','Not sorted yet — drag each table to Men or Women','wide'); if(u.n) box.appendChild(u.z);
+    box.appendChild(zone('men','Men').z); box.appendChild(zone('women','Women').z);
+    const p=document.createElement('div'); p.className='zone wide plain'; const grid=document.createElement('div'); grid.className='gcards'; grid.appendChild(unseatedCard()); p.appendChild(grid); box.appendChild(p); }
   updateGuestCounts(); applyFind(); }
+$('#gSplit').addEventListener('change',e=>{ state.split=e.target.checked; renderGuestView(); guestChanged(); });
 function applyFind(){ const q=$('#gFind').value.trim().toLowerCase(); document.querySelectorAll('#gcards .seat').forEach(r=>{ const v=r.querySelector('input').value.toLowerCase(); r.classList.toggle('hit',!!q&&!!v&&v.includes(q)); }); document.querySelectorAll('#gcards .gcard').forEach(c=>c.classList.toggle('dim',!!q&&!c.querySelector('.seat.hit'))); }
 $('#gFind').addEventListener('input',applyFind);
 function showTableGuests(t){ setView('guests'); const card=document.querySelector(`#gcards .gcard[data-table="${t.id}"]`); if(card){ card.scrollIntoView({block:'center'}); card.classList.add('flash'); setTimeout(()=>card.classList.remove('flash'),1600); } }
@@ -1046,7 +1075,8 @@ async function makePDF(){
   return pdf;
 }
 function addSeatingPages(pdf,PW,PH,M,A3){
-  normalizeSeats(); const g=state.guests; const groups=tablesSorted().map(t=>({title:tableTitle(t),seats:t.seats,names:g.filter(x=>x.table===t.id).sort((p,q)=>(p.seat||99)-(q.seat||99)).map(x=>(x.seat?x.seat+'.':'+')+'  '+x.name)})).filter(x=>x.names.length);
+  normalizeSeats(); const g=state.guests; const grp=t=>({title:tableTitle(t),seats:t.seats,names:g.filter(x=>x.table===t.id).sort((p,q)=>(p.seat||99)-(q.seat||99)).map(x=>(x.seat?x.seat+'.':'+')+'  '+x.name)});
+  let groups=[]; if(state.split){ [['men','MEN'],['women','WOMEN'],['','NOT SORTED']].forEach(([k,ttl])=>{ const list=tablesSorted().filter(t=>sectionOf(t)===k).map(grp).filter(x=>x.names.length); if(list.length){ groups.push({heading:ttl}); groups=groups.concat(list); } }); } else groups=tablesSorted().map(grp).filter(x=>x.names.length);
   const un=g.filter(x=>!x.table||!byId(x.table)).map(x=>'–  '+x.name); if(un.length) groups.push({title:'Not seated yet',seats:0,names:un});
   const cols=PW>PH?3:2, gap=8, colW=(PW-2*M-(cols-1)*gap)/cols; const fsT=A3?12:10.5, fsN=A3?10.5:9; const lhT=fsT*0.5, lhN=fsN*0.46; const top=M+22, bottom=PH-M-6;
   let page=0; const header=()=>{ pdf.addPage(); page++; pdf.setFont('helvetica','bold'); pdf.setFontSize(A3?16:13); pdf.setTextColor(15,17,20); pdf.text((state.job||state.room.name||'Room plan')+'  —  Seating list',M,M+5);
@@ -1054,7 +1084,8 @@ function addSeatingPages(pdf,PW,PH,M,A3){
     pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.4); pdf.line(M,M+13,PW-M,M+13); pdf.setFontSize(8); pdf.text('MY Events  ·  seating list p.'+page,PW-M,PH-M+1,{align:'right'}); };
   header(); let col=0, y=top;
   const newCol=()=>{ col++; y=top; if(col>=cols){ header(); col=0; } };
-  groups.forEach(gr=>{ const need=lhT+3.5+Math.min(gr.names.length,6)*lhN; if(y+need>bottom) newCol();
+  groups.forEach(gr=>{ if(gr.heading){ if(y+lhT*2.4+lhN*3>bottom) newCol(); if(y!==top) y+=lhT*0.6; const x=M+col*(colW+gap); pdf.setFont('helvetica','bold'); pdf.setFontSize(fsT+1.5); pdf.setTextColor(164,132,46); pdf.text(gr.heading,x,y); pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.6); pdf.line(x,y+2,x+colW,y+2); y+=lhT*2.2; return; }
+    const need=lhT+3.5+Math.min(gr.names.length,6)*lhN; if(y+need>bottom) newCol();
     const x=M+col*(colW+gap); pdf.setFont('helvetica','bold'); pdf.setFontSize(fsT); pdf.setTextColor(15,17,20); pdf.text(pdf.splitTextToSize(gr.title+(gr.seats?'   ('+gr.names.length+' of '+gr.seats+')':'   ('+gr.names.length+')'),colW)[0],x,y);
     pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.3); pdf.line(x,y+1.6,x+colW*0.35,y+1.6); y+=lhT+3.5;
     pdf.setFont('helvetica','normal'); pdf.setFontSize(fsN); pdf.setTextColor(40,42,48);
