@@ -1023,7 +1023,8 @@ function moveGuest(id,tableId,seat){ const g=state.guests.find(x=>x.id===id); if
 function dropTarget(el,tableId,seat){ el.addEventListener('dragover',e=>{ if(!dragGuest) return; e.preventDefault(); e.dataTransfer.dropEffect='move'; el.classList.add('dropover'); }); el.addEventListener('dragleave',()=>el.classList.remove('dropover'));
   el.addEventListener('drop',e=>{ e.preventDefault(); el.classList.remove('dropover'); const id=dragGuest||e.dataTransfer.getData('text/plain'); dragGuest=null; if(id) moveGuest(id,tableId,seat); }); }
 function seatRow(t,k,gu,isAdd){ const row=document.createElement('div'); row.className='seat'+(t&&!k?' extra':''); const n=document.createElement('span'); n.className='n'; n.textContent= t? (k?('Seat '+k):'Extra') : ''; row.appendChild(n);
-  if(gu){ n.classList.add('grip'); n.draggable=true; n.title='Drag to another seat or table'; n.addEventListener('dragstart',e=>{ dragGuest=gu.id; e.dataTransfer.setData('text/plain',gu.id); e.dataTransfer.effectAllowed='move'; row.classList.add('dragging'); }); n.addEventListener('dragend',()=>{ row.classList.remove('dragging'); dragGuest=null; }); }
+  const applyGrip=()=>{ n.classList.toggle('grip',!!gu); n.draggable=!!gu; n.title=gu?'Drag to another seat or table':''; };
+  n.addEventListener('dragstart',e=>{ if(!gu){ e.preventDefault(); return; } dragGuest=gu.id; e.dataTransfer.setData('text/plain',gu.id); e.dataTransfer.effectAllowed='move'; row.classList.add('dragging'); }); n.addEventListener('dragend',()=>{ row.classList.remove('dragging'); dragGuest=null; }); applyGrip();
   if(!isAdd) dropTarget(row,t?t.id:null,t?k:null);
   const inp=document.createElement('input'); inp.value=gu?gu.name:''; inp.placeholder= isAdd?'Add a name…':(t?'—':''); inp.maxLength=60; inp.setAttribute('aria-label',t?tableTitle(t)+' seat '+(k||''):'Name'); row.appendChild(inp);
   const sel=document.createElement('select'); tableOptions(sel,t?t.id:''); sel.title='Move to another table'; sel.hidden=!gu; row.appendChild(sel);
@@ -1031,7 +1032,7 @@ function seatRow(t,k,gu,isAdd){ const row=document.createElement('div'); row.cla
     if(gu){ if(v) gu.name=v; else { state.guests=state.guests.filter(x=>x!==gu); gu=null; } }
     else if(v){ gu={id:uid(),name:v,table:t?t.id:null,seat:t?k:null,want:null}; state.guests.push(gu); }
     if(isAdd&&gu){ renderGuestView(); const last=document.querySelector('#gcards .gcard.unseated .seat:last-child input'); if(last) last.focus(); }
-    else { sel.hidden=!gu; if(gu) tableOptions(sel,gu.table||''); }
+    else { sel.hidden=!gu; if(gu) tableOptions(sel,gu.table||''); applyGrip(); }
     guestChanged(); });
   inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const rows=[...document.querySelectorAll('#gcards .seat input')]; const i=rows.indexOf(inp); inp.blur(); if(!isAdd&&rows[i+1]) rows[i+1].focus(); } });
   sel.addEventListener('change',()=>{ if(!gu) return; gu.table=sel.value||null; gu.seat=null; gu.want=null; normalizeSeats(); renderGuestView(); guestChanged(); });
