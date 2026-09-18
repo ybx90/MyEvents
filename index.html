@@ -635,7 +635,7 @@ function addFromTile(type){ const def=DEFS[type]; closeInline();
 
 // ---------- selection panel ----------
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function setTableNum(it,n){ if(!Number.isInteger(n)||n<1) return; const other=state.items.find(o=>o!==it&&isTable(o)&&o.num===n); if(other) other.num=it.num; it.num=n; }
+function setTableNum(it,n){ if(!Number.isInteger(n)||n<0) return; it.num=n; }
 function renderSel(){
   const it=byId(state.sel); const sec=$('#secSel'), body=$('#selBody'); sec.hidden=!it; if(!it){ body.innerHTML=''; return; }
   sec.open=true; const def=DEFS[it.type], u=uName(), st=uStep(); $('#selKind').textContent=def.name; let h='';
