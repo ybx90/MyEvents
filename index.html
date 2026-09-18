@@ -136,6 +136,21 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .seat select{width:auto;padding:2px 3px;font-size:11px;max-width:92px;color:var(--muted);border-color:transparent;background:transparent}
 .seat select:hover,.seat select:focus{border-color:var(--line-strong);background:var(--field)}
 .saved.dirty{color:var(--gold-deep);font-weight:600}
+.hallrow{display:grid;grid-template-columns:1fr auto auto;gap:5px}
+.datef{position:relative}
+.datebtn{justify-content:flex-start;font-weight:500;width:100%;text-align:left}
+.cal{position:absolute;z-index:25;top:100%;left:0;margin-top:4px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:8px;width:240px}
+.calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.calhead b{font-size:12.5px}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.calgrid .dow{font-size:10px;color:var(--muted);padding:2px 0 4px}
+.calgrid .day{font:inherit;font-size:12px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--ink);padding:5px 0;cursor:pointer;font-variant-numeric:tabular-nums}
+.calgrid .day:hover{background:var(--gold-soft)}
+.calgrid .day.sel{background:var(--ink);color:var(--paper)}
+.calgrid .day.today{border-color:var(--gold)}
+.calgrid .day.we{color:var(--muted)}
+.calfoot{display:flex;justify-content:space-between;margin-top:6px;gap:4px}
+.calfoot .btn{padding:4px 8px;font-size:11px}
 .tsel{font:inherit;font-weight:600;font-size:14px;border:0;background:transparent;padding:0 18px 0 0;color:var(--ink);cursor:pointer;max-width:100%;text-overflow:ellipsis;appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 9px) 55%,calc(100% - 5px) 55%;background-size:4px 4px,4px 4px;background-repeat:no-repeat}
 .tsel:focus{outline:2px solid var(--gold);outline-offset:2px;border-radius:3px}
 .tgroup.proj{position:relative}
@@ -255,11 +270,13 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
           <div class="field"><label for="units">Units</label><select id="units"><option value="m">metres</option><option value="ft">feet</option></select></div>
         </div>
         <div class="corners" id="corners"></div>
+        <div class="field mt"><label for="hallSel">Saved halls</label><div class="hallrow"><select id="hallSel"><option value="">— choose a hall —</option></select><button class="btn" id="hallSave" type="button" title="Save this room (size, corners, stage, bar, pillars, doors…) under its name so you can reuse it">Save hall</button><button class="btn danger icon" id="hallDel" type="button" title="Delete the chosen saved hall">×</button></div></div>
       </div></details>
 
       <details class="sec" id="secEvent" open><summary>Event</summary><div class="body">
         <div class="field"><label for="jobName">Job / event name</label><input id="jobName" placeholder="e.g. Cohen wedding" maxlength="80"></div>
-        <div class="row mt"><div class="field"><label for="rName">Hall / room</label><input id="rName" value="Main Hall" maxlength="60"></div><div class="field"><label for="evDate">Date</label><input id="evDate" type="date"></div></div>
+        <div class="field mt"><label for="rName">Hall / room</label><input id="rName" value="Main Hall" maxlength="60"></div>
+        <div class="field mt datef"><label for="evDate">Date</label><button class="btn datebtn" id="evDate" type="button" aria-haspopup="dialog">Pick a date</button><div class="cal" id="cal" hidden role="dialog" aria-label="Choose a date"></div></div>
         <p class="note" id="syncNote" hidden></p>
       </div></details>
     </aside>
@@ -393,7 +410,7 @@ const fromU=v=> state.units==='ft'? v/FT : v;
 const fmtU=m=> state.units==='ft'? (m*FT).toFixed(1)+' ft' : m.toFixed(1)+' m';
 const uStep=()=> state.units==='ft'?0.5:0.1;
 const uName=()=> state.units==='ft'?'ft':'m';
-function fmtDate(iso,long){ if(!iso) return ''; const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); if(!m) return iso; const dt=new Date(+m[1],+m[2]-1,+m[3]); return dt.toLocaleDateString('en-GB',long?{weekday:'long',day:'numeric',month:'long',year:'numeric'}:{day:'numeric',month:'short',year:'numeric'}); }
+function fmtDate(iso,long){ if(!iso) return ''; const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); if(!m) return iso; const dt=new Date(+m[1],+m[2]-1,+m[3]); return dt.toLocaleDateString('en-GB',long?{weekday:'long',day:'numeric',month:'long',year:'numeric'}:{weekday:'short',day:'numeric',month:'short',year:'numeric'}); }
 
 // ---------- room geometry (rectangle with up to four corner cut-outs) ----------
 const CORNERS=['tl','tr','bl','br']; const CORNER_NAMES={tl:'Top left',tr:'Top right',bl:'Bottom left',br:'Bottom right'};
@@ -707,7 +724,7 @@ let lastTableSig='';
 function refresh(){ refreshStats(); draw(); save(); renderProjects(); histRecord(); const sig=state.items.filter(isTable).map(t=>t.id+':'+t.num+':'+t.label+':'+t.seats).join('|'); if(sig!==lastTableSig){ lastTableSig=sig; if(curView==='guests') renderGuestView(); } updateGuestCounts(); }
 
 // ---------- room inputs ----------
-function fillRoomInputs(){ const r=state.room; $('#rName').value=r.name; $('#jobName').value=state.job||''; $('#evDate').value=state.date||''; $('#units').value=state.units; $('#paper').value=state.paper||'a4';
+function fillRoomInputs(){ const r=state.room; $('#rName').value=r.name; $('#jobName').value=state.job||''; $('#evDate').textContent=state.date?fmtDate(state.date,true):'Pick a date'; $('#units').value=state.units; $('#paper').value=state.paper||'a4';
   const st=uStep(); ['#rW','#rD'].forEach(s=>$(s).step=st); $('#rW').value=toU(r.w).toFixed(1); $('#rD').value=toU(r.d).toFixed(1); renderCorners(); }
 function renderCorners(){ const box=$('#corners'); box.innerHTML=''; const u=uName(), st=uStep();
   CORNERS.forEach(k=>{ const c=cutOf(k); if(!c) return; const row=document.createElement('div'); row.className='corner';
@@ -720,10 +737,9 @@ function renderCorners(){ const box=$('#corners'); box.innerHTML=''; const u=uNa
   if(!box.children.length){ const p=document.createElement('p'); p.className='note'; p.style.margin='4px 0 0'; p.textContent='Rectangle — no corners cut out.'; box.appendChild(p); } }
 $('#rName').addEventListener('input',e=>{ state.room.name=e.target.value; refresh(); });
 $('#jobName').addEventListener('input',e=>{ state.job=e.target.value; refresh(); });
-$('#evDate').addEventListener('change',e=>{ state.date=e.target.value; refresh(); });
 const dimChange=(key)=>e=>{ const v=fromU(parseFloat(e.target.value)); if(!(v>=2)){ e.target.value=toU(state.room[key]).toFixed(1); toast('Minimum size is '+fmtU(2)); return; } state.room[key]=+v.toFixed(2); limitCuts(); fillRoomInputs(); refresh(); };
 $('#rW').addEventListener('change',dimChange('w')); $('#rD').addEventListener('change',dimChange('d'));
-$('#units').addEventListener('change',e=>{ state.units=e.target.value; fillRoomInputs(); renderSel(); refresh(); });
+$('#units').addEventListener('change',e=>{ state.units=e.target.value; fillRoomInputs(); renderSel(); renderHalls(); refresh(); });
 $('#paper').addEventListener('change',e=>{ state.paper=e.target.value; save(); });
 
 // ---------- add: tabs and tiles ----------
@@ -924,6 +940,34 @@ $('#pDup').addEventListener('click',()=>{ save(); const d=JSON.parse(JSON.string
 $('#renumber').addEventListener('click',()=>{ const tables=state.items.filter(isTable).slice().sort((a,b)=>a.y-b.y); const rows=[]; tables.forEach(t=>{ const r=rows.find(r=>Math.abs(r.y-t.y)<1.2); if(r) r.items.push(t); else rows.push({y:t.y,items:[t]}); });
   let n=1; rows.forEach(r=>r.items.sort((a,b)=>a.x-b.x).forEach(t=>{ t.num=n++; })); renderSel(); refresh(); toast('Tables numbered left to right, front to back'); });
 
+// ---------- calendar popup ----------
+const isoOf=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+let calMonth=null;
+function renderCal(){ const c=$('#cal'); const y=calMonth.getFullYear(), m=calMonth.getMonth(); const first=new Date(y,m,1); const startDow=(first.getDay()+6)%7; const days=new Date(y,m+1,0).getDate(); const today=isoOf(new Date());
+  let h=`<div class="calhead"><button type="button" class="btn icon" data-nav="-1" aria-label="Previous month">‹</button><b>${first.toLocaleDateString('en-GB',{month:'long',year:'numeric'})}</b><button type="button" class="btn icon" data-nav="1" aria-label="Next month">›</button></div><div class="calgrid">`+['Mo','Tu','We','Th','Fr','Sa','Su'].map(d=>`<span class="dow">${d}</span>`).join('');
+  for(let i=0;i<startDow;i++) h+='<span></span>';
+  for(let d=1;d<=days;d++){ const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; const dow=(startDow+d-1)%7; h+=`<button type="button" class="day${iso===state.date?' sel':''}${iso===today?' today':''}${dow>=5?' we':''}" data-iso="${iso}">${d}</button>`; }
+  h+=`</div><div class="calfoot"><button type="button" class="btn" data-iso="">Clear</button><button type="button" class="btn" data-iso="${today}">Today</button></div>`; c.innerHTML=h; }
+function openCal(){ const m=/^(\d{4})-(\d{2})/.exec(state.date||''); calMonth=m?new Date(+m[1],+m[2]-1,1):new Date(new Date().getFullYear(),new Date().getMonth(),1); renderCal(); $('#cal').hidden=false; }
+function closeCal(){ $('#cal').hidden=true; }
+$('#evDate').addEventListener('click',e=>{ e.stopPropagation(); if($('#cal').hidden) openCal(); else closeCal(); });
+$('#cal').addEventListener('click',e=>{ e.stopPropagation(); const nav=e.target.closest('[data-nav]'); if(nav){ calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+(+nav.dataset.nav),1); renderCal(); return; }
+  const d=e.target.closest('[data-iso]'); if(d){ state.date=d.dataset.iso||''; fillRoomInputs(); refresh(); closeCal(); } });
+document.addEventListener('click',e=>{ if(!$('#cal').hidden&&!$('#cal').contains(e.target)&&e.target!==$('#evDate')) closeCal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('#cal').hidden) closeCal(); });
+
+// ---------- saved halls (room + fixed features, reusable across projects) ----------
+let halls=[]; try{ const hh=JSON.parse(localStorage.getItem('myevents-halls')); if(Array.isArray(hh)) halls=hh.filter(x=>x&&x.room&&x.name); }catch(e){}
+function saveHalls(){ try{ localStorage.setItem('myevents-halls',JSON.stringify(halls)); }catch(e){} }
+const isFixture=it=>!isTable(it)&&it.type!=='chairrow';
+function renderHalls(){ const sel=$('#hallSel'); const cur=sel.value; sel.innerHTML='<option value="">— choose a hall —</option>'; halls.slice().sort((p,q)=>p.name.localeCompare(q.name)).forEach(h=>{ const o=document.createElement('option'); o.value=h.id; o.textContent=`${h.name} · ${fmtU(h.room.w)} × ${fmtU(h.room.d)}`; sel.appendChild(o); }); sel.value=halls.some(h=>h.id===cur)?cur:''; $('#hallDel').disabled=!sel.value; }
+function applyHall(h){ state.room=JSON.parse(JSON.stringify(h.room)); if(!state.room.cuts) state.room.cuts={tl:null,tr:null,bl:null,br:null}; if(h.units) state.units=h.units;
+  state.items=state.items.filter(it=>!isFixture(it)).concat(JSON.parse(JSON.stringify(h.items||[])).map(it=>Object.assign(it,{id:uid()}))); state.sel=null; closeInline(); fillRoomInputs(); renderSel(); zoomFit(); refresh(); }
+$('#hallSave').addEventListener('click',()=>{ const name=(state.room.name||'').trim()||'Hall'; const h={id:uid(),name,updated:Date.now(),units:state.units,room:JSON.parse(JSON.stringify(state.room)),items:JSON.parse(JSON.stringify(state.items.filter(isFixture)))};
+  const i=halls.findIndex(x=>x.name.toLowerCase()===name.toLowerCase()); if(i>=0){ h.id=halls[i].id; halls[i]=h; } else halls.push(h); saveHalls(); renderHalls(); $('#hallSel').value=h.id; $('#hallDel').disabled=false; toast((i>=0?'Updated hall “':'Saved hall “')+name+'” — '+h.items.length+' fixed item'+(h.items.length===1?'':'s')+' included'); });
+$('#hallSel').addEventListener('change',e=>{ const h=halls.find(x=>x.id===e.target.value); $('#hallDel').disabled=!h; if(!h) return; applyHall(h); toast('Hall “'+h.name+'” applied — Undo puts the old room back'); });
+arm('hallDel','×',()=>{ const id=$('#hallSel').value; const h=halls.find(x=>x.id===id); if(!h) return; halls=halls.filter(x=>x.id!==id); saveHalls(); renderHalls(); toast('Deleted hall “'+h.name+'”'); });
+
 // ---------- guests (own tab: table by table, seat by seat) ----------
 let curView='plan';
 function setView(v){ curView=v; document.querySelectorAll('.vbtn').forEach(x=>x.classList.toggle('on',x.dataset.view===v)); $('#gview').hidden=v!=='guests'; $('.stage').hidden=v!=='plan'; $('.main').classList.toggle('guests',v==='guests'); closeInline(); if(v==='guests') renderGuestView(); else draw(); }
@@ -1111,12 +1155,13 @@ async function makePNG(){
 }
 $('#dl').addEventListener('click',()=>busy($('#dl'),'Preparing…',async()=>{ try{ closeInline(); const pdf=await makePDF(); if(await deliver(baseName()+'.pdf',pdf.output('blob'))) toast('PDF saved'); }catch(e){ exportError(e,'PDF'); } }));
 $('#png').addEventListener('click',()=>busy($('#png'),'…',async()=>{ try{ closeInline(); const blob=await makePNG(); if(await deliver(baseName()+'.png',blob)) toast('PNG saved'); }catch(e){ exportError(e,'PNG'); } }));
-$('#pBackup').addEventListener('click',()=>busy($('#pBackup'),'…',async()=>{ save(); try{ const body=JSON.stringify({app:'myevents-planner',version:2,exported:new Date().toISOString(),projects:store.projects},null,1);
+$('#pBackup').addEventListener('click',()=>busy($('#pBackup'),'…',async()=>{ save(); try{ const body=JSON.stringify({app:'myevents-planner',version:2,exported:new Date().toISOString(),projects:store.projects,halls},null,1);
   const d=new Date(); const stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   if(await deliver('myevents-projects-'+stamp+'.json',new Blob([body],{type:'application/json'}))) toast(store.projects.length+' project'+(store.projects.length===1?'':'s')+' backed up'); }catch(e){ exportError(e,'backup'); } }));
 $('#pRestore').addEventListener('click',()=>{ const f=$('#restoreFile'); f.value=''; f.click(); });
 $('#restoreFile').addEventListener('change',async e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return;
   try{ const j=JSON.parse(await f.text()); const list=Array.isArray(j.projects)?j.projects:(Array.isArray(j)?j:null); if(!list) throw new Error('not a planner backup');
+    if(Array.isArray(j.halls)){ j.halls.forEach(h=>{ if(!h||!h.room||!h.name) return; const i=halls.findIndex(x=>x.id===h.id||x.name.toLowerCase()===h.name.toLowerCase()); if(i<0) halls.push(h); else if((h.updated||0)>(halls[i].updated||0)) halls[i]=h; }); saveHalls(); renderHalls(); }
     let added=0,updated=0; list.forEach(q=>{ if(!q||!q.data||!q.data.room||!Array.isArray(q.data.items)) return; const id=q.id||uid(); const ex=store.projects.find(x=>x.id===id);
       if(!ex){ store.projects.push({id,updated:q.updated||Date.now(),data:normalize(q.data)}); added++; } else if((q.updated||0)>(ex.updated||0)){ ex.updated=q.updated; ex.data=normalize(q.data); updated++; } });
     saveStore(); state=normalize(curProj().data); fillRoomInputs(); renderSel(); refresh(); renderProjects(); histReset(); if(curView==='guests') renderGuestView(); if(cloud) store.projects.forEach(q=>pushProject(q.id));
@@ -1127,7 +1172,7 @@ $('#restoreFile').addEventListener('change',async e=>{ const f=e.target.files&&e
 document.querySelectorAll('details.sec').forEach(d=>{ if(d.id==='secSel') return; try{ const v=localStorage.getItem('myevents-sec-'+d.id); if(v==='0') d.open=false; }catch(e){} d.addEventListener('toggle',()=>{ try{ localStorage.setItem('myevents-sec-'+d.id,d.open?'1':'0'); }catch(e){} }); });
 
 // ---------- init ----------
-saveStore(); renderTabs(); renderTiles(); fillRoomInputs(); renderSel(); refreshStats(); draw(); renderProjects(); histReset(); setFileStatus(); updateGuestCounts(); drawHeaderLogo(); initCloud();
+saveStore(); renderTabs(); renderTiles(); fillRoomInputs(); renderHalls(); renderSel(); refreshStats(); draw(); renderProjects(); histReset(); setFileStatus(); updateGuestCounts(); drawHeaderLogo(); initCloud();
 new ResizeObserver(()=>{ closeInline(); draw(); }).observe($('.stage'));
 const themed=()=>{ draw(); drawHeaderLogo(); renderIcons(); };
 try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',themed); }catch(e){}
