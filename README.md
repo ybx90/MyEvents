@@ -12,13 +12,11 @@ bar, partitions and other furniture on a scale plan, exported as a branded PDF o
 
 ## Guests
 
-Import a spreadsheet (CSV/XLSX: a table column and a name column, or one row per table with names across, or 'Table 1' heading lines followed by names) or paste a list. Names sit under their table in the Guests panel where you can rename, move or remove them, and the PDF gains a seating-list page.
+The Guests tab lists every table seat by seat (Seat 1, Seat 2 …). Type names straight in, import a CSV/XLSX (table + name columns, optional seat column; or one row per table with names across; or 'Table 1' lines followed by names) or paste a list. Names can be moved between tables, exported as CSV, and printed as a seating-list PDF (also appended to the plan PDF). Seat numbers are printed on the chairs on the plan.
 
-## Where your layouts are saved
+## Saving
 
-On GitHub Pages (or opened as a file) projects are saved in the browser you're using — same laptop, same browser,
-they're there. Use **Backup all** in the Projects panel now and then to download every project as one JSON file,
-and **Restore** to load it on another device.
+**Save** (top bar, Ctrl+S) writes the plan to a file on your computer; **Open** loads one. In Chrome/Edge it asks where to save the first time and then overwrites that file on later saves. The browser also autosaves silently as a safety net; **Backup all** in Project downloads every project in one file.
 
 ## Updating the site
 
