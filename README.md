@@ -10,6 +10,10 @@ bar, partitions and other furniture on a scale plan, exported as a branded PDF o
 - `index.html` — the whole site in one file (logo and favicon embedded). Open it locally or host it anywhere static.
 - `assets/` — the MY Events logo (transparent and white-background PNGs) and favicon, in case they're needed separately.
 
+## Guests
+
+Import a spreadsheet (CSV/XLSX: a table column and a name column, or one row per table with names across, or 'Table 1' heading lines followed by names) or paste a list. Names sit under their table in the Guests panel where you can rename, move or remove them, and the PDF gains a seating-list page.
+
 ## Where your layouts are saved
 
 On GitHub Pages (or opened as a file) projects are saved in the browser you're using — same laptop, same browser,
