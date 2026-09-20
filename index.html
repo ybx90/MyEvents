@@ -346,6 +346,8 @@ const DEFS={
   square:{name:'Square table',cat:'tables',table:true,seats:8},
   top:{name:'Top table',cat:'tables',table:true,seats:8,sides:'one'},
   poseur:{name:'Poseur table',cat:'tables',table:true,seats:4,w:0.6,h:0.6,stools:true},
+  semi:{name:'Half‑round table',cat:'tables',table:true,seats:5},
+  oval:{name:'Oval table',cat:'tables',table:true,seats:8},
   armchair:{name:'Armchair',cat:'seating',w:0.85,h:0.85,label:''},
   sofa:{name:'Sofa',cat:'seating',w:1.9,h:0.9,label:''},
   bench:{name:'Bench',cat:'seating',w:1.5,h:0.42,label:''},
@@ -374,9 +376,10 @@ const DEFS={
   block:{name:'Custom block',cat:'structure',w:2,h:1,label:'BLOCK'},
   text:{name:'Text box',cat:'text',w:3,h:0.8,label:'Your text here'}
 };
-const PRESETS={r3:[0.91,0.91],r4:[1.22,1.22],r5:[1.52,1.52],'r5.5':[1.68,1.68],r6:[1.83,1.83],'r6.5':[1.98,1.98],t4:[1.22,0.76],t6:[1.83,0.76],t8:[2.44,0.76],s3:[0.91,0.91],s4:[1.22,1.22]};
-const PRESET_NAMES={r3:'3 ft round',r4:'4 ft round',r5:'5 ft round','r5.5':'5 ft 6 round',r6:'6 ft round','r6.5':'6 ft 6 round',t4:'4 ft trestle',t6:'6 ft trestle',t8:'8 ft trestle',s3:'3 ft square',s4:'4 ft square'};
-const family=it=> it.type==='round'?'r' : it.type==='square'?'s' : it.type==='poseur'?'p' : 't';
+const PRESETS={r3:[0.91,0.91],r4:[1.22,1.22],r5:[1.52,1.52],'r5.5':[1.68,1.68],r6:[1.83,1.83],'r6.5':[1.98,1.98],t4:[1.22,0.76],t6:[1.83,0.76],t8:[2.44,0.76],s3:[0.91,0.91],s4:[1.22,1.22],h5:[1.52,0.76],h6:[1.83,0.915],o6:[1.83,1.22],o8:[2.44,1.22]};
+const PRESET_NAMES={r3:'3 ft round',r4:'4 ft round',r5:'5 ft round','r5.5':'5 ft 6 round',r6:'6 ft round','r6.5':'6 ft 6 round',t4:'4 ft trestle',t6:'6 ft trestle',t8:'8 ft trestle',s3:'3 ft square',s4:'4 ft square',h5:'5 ft half‑round',h6:'6 ft half‑round',o6:'6 ft oval',o8:'8 ft oval'};
+const family=it=> it.type==='round'?'r' : it.type==='square'?'s' : it.type==='poseur'?'p' : it.type==='semi'?'h' : it.type==='oval'?'o' : 't';
+function ovalPerim(a,b){ return Math.PI*(3*(a+b)-Math.sqrt((3*a+b)*(a+3*b))); }
 const isTable=it=>!!DEFS[it.type].table;
 const isRound=it=>it.type==='round'||it.type==='poseur';
 
@@ -385,6 +388,8 @@ let _id=1; const uid=()=>'i'+(_id++)+'_'+Math.random().toString(36).slice(2,7);
 function tableSize(type,seats,sides){
   if(type==='round'){ const d= seats<=4?0.9 : seats<=6?1.2 : seats<=8?1.52 : seats<=10?1.83 : seats<=12?2.0 : 2.0+(seats-12)*0.15; return {w:d,h:d}; }
   if(type==='poseur') return {w:0.6,h:0.6};
+  if(type==='semi'){ const R=Math.max(0.6,+(seats*0.6/Math.PI).toFixed(2)); return {w:+(2*R).toFixed(2),h:R}; }
+  if(type==='oval'){ const h= seats<=6?1.2 : seats<=10?1.3 : 1.4; let w=h*1.3; while(ovalPerim(w/2,h/2)<seats*0.62&&w<12) w+=0.05; return {w:+w.toFixed(2),h}; }
   if(type==='square'){ const per=Math.ceil(seats/4); const s=Math.max(0.9,per*0.6+0.15); return {w:s,h:s}; }
   const perSide= sides==='one'? seats : Math.ceil(seats/2);
   return {w:Math.max(1.2,+(perSide*0.61).toFixed(2)),h:0.76};
@@ -470,6 +475,9 @@ function seatLayout(it){
   const n=Math.max(0,it.seats|0), out=[]; if(!n) return out; const {w,h}=it;
   if(it.type==='chairrow'){ for(let i=0;i<n;i++) out.push({x:-w/2+(i+0.5)*w/n,y:0,a:0,size:Math.min(CH,w/n*0.92)}); return out; }
   if(isRound(it)){ const off=it.type==='poseur'?0.22:CH_OFF; const R=w/2+off; for(let i=0;i<n;i++){ const a=-Math.PI/2+i*2*Math.PI/n; const x=Math.cos(a)*R,y=Math.sin(a)*R; out.push({x,y,a:Math.atan2(x,-y),stool:it.type==='poseur'}); } return out; }
+  if(it.type==='semi'){ const R=w/2+CH_OFF, cy=h/2; for(let i=0;i<n;i++){ const a=Math.PI+(i+0.5)*Math.PI/n; const x=Math.cos(a)*R, y=cy+Math.sin(a)*R; out.push({x,y,a:Math.atan2(x,cy-y)}); } return out; }
+  if(it.type==='oval'){ const A=w/2,B=h/2,N=360; const pts=[]; let len=0, prev=null; for(let i=0;i<=N;i++){ const t=-Math.PI/2+i*2*Math.PI/N; const p=[A*Math.cos(t),B*Math.sin(t)]; if(prev) len+=Math.hypot(p[0]-prev[0],p[1]-prev[1]); pts.push({t,len}); prev=p; }
+    for(let k=0;k<n;k++){ const target=(k+0.5)*len/n; const q=pts.find(e=>e.len>=target)||pts[pts.length-1]; const t=q.t; const nx=B*Math.cos(t), ny=A*Math.sin(t); const nl=Math.hypot(nx,ny)||1; const ux=nx/nl, uy=ny/nl; out.push({x:A*Math.cos(t)+ux*CH_OFF, y:B*Math.sin(t)+uy*CH_OFF, a:Math.atan2(ux,-uy)}); } return out; }
   const put=(side,cnt)=>{ for(let i=0;i<cnt;i++){ const t=(i+0.5)/cnt;
     if(side==='top') out.push({x:-w/2+t*w,y:-h/2-CH_OFF,a:0});
     else if(side==='bottom') out.push({x:-w/2+t*w,y:h/2+CH_OFF,a:Math.PI});
@@ -559,7 +567,10 @@ function drawItem(ctx,it,S,ox,oy,pal,opt){
   if(def.table){
     seatLayout(it).forEach((c,i)=>drawChair(ctx,c,S,pal,lw,opt.icon?0:i+1,opt));
     ctx.fillStyle=pal.table;
-    if(isRound(it)){ ctx.beginPath(); ctx.arc(0,0,w/2,0,Math.PI*2); ctx.fill(); ctx.stroke(); } else { box(); ctx.fill(); ctx.stroke(); }
+    if(isRound(it)){ ctx.beginPath(); ctx.arc(0,0,w/2,0,Math.PI*2); ctx.fill(); ctx.stroke(); }
+    else if(it.type==='oval'){ ctx.beginPath(); ctx.ellipse(0,0,w/2,h/2,0,0,Math.PI*2); ctx.fill(); ctx.stroke(); }
+    else if(it.type==='semi'){ ctx.beginPath(); ctx.moveTo(-w/2,h/2); ctx.arc(0,h/2,w/2,Math.PI,Math.PI*2); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    else { box(); ctx.fill(); ctx.stroke(); }
     const name=tableName(it); const gc=(state.guests||[]).reduce((a,g)=>a+(g.table===it.id?1:0),0); const seatsTxt=gc?`${gc} of ${it.seats}`:(it.seats+(it.seats===1?' seat':' seats'));
     ctx.save(); if(flip) ctx.rotate(Math.PI); ctx.fillStyle=pal.ink; ctx.textAlign='center'; ctx.textBaseline='middle';
     if(it.type==='poseur'){ const big=Math.max(7,Math.min(w*0.5,w/(name.length*0.7))); ctx.font=`500 ${big}px "Bodoni Moda", Didot, serif`; ctx.fillText(name,0,0); }
@@ -797,7 +808,7 @@ $('#paper').addEventListener('change',e=>{ state.paper=e.target.value; save(); }
 let tab='tables'; try{ tab=localStorage.getItem('myevents-tab')||'tables'; }catch(e){} if(!CATS.some(c=>c[0]===tab)) tab='tables';
 function renderTabs(){ const t=$('#tabs'); t.innerHTML=''; CATS.forEach(([k,n])=>{ const b=document.createElement('button'); b.type='button'; b.className='tab'+(k===tab?' on':''); b.textContent=n; b.addEventListener('click',()=>{ tab=k; try{ localStorage.setItem('myevents-tab',k); }catch(e){} renderTabs(); renderTiles(); }); t.appendChild(b); });
   $('#tableOpts').hidden=!(tab==='tables'||tab==='seating'||tab==='all'); $('#preset').parentElement.hidden=!(tab==='tables'||tab==='all'); }
-function drawIcon(canvas,type){ const ctx=canvas.getContext('2d'); const it=newItem(type,0,0,{num:1}); if(type==='chairrow') it.seats=4, it.w=2; if(type==='round') it.seats=8; if(type==='rect') it.seats=6;
+function drawIcon(canvas,type){ const ctx=canvas.getContext('2d'); const it=newItem(type,0,0,{num:1}); if(type==='chairrow') it.seats=4, it.w=2; if(type==='round') it.seats=8; if(type==='rect') it.seats=6; if(type==='semi'){ it.seats=4; Object.assign(it,tableSize('semi',4)); } if(type==='oval'){ it.seats=6; Object.assign(it,tableSize('oval',6)); }
   const a=aabb(it); const S=30/(2*Math.max(a.hw,a.hh)); ctx.setTransform(2,0,0,2,0,0); ctx.clearRect(0,0,34,34); const pal=screenPal(); pal.bg='transparent';
   ctx.save(); ctx.translate(17,17); ctx.translate(-it.x*S,-it.y*S); drawItem(ctx,it,S,0,0,pal,{print:true,icon:true}); ctx.restore(); }
 function renderTiles(){ const box=$('#tiles'); box.innerHTML='';
@@ -848,8 +859,8 @@ function renderSel(){
   const ss=$('#sSeats'); if(ss) ss.addEventListener('input',e=>{ it.seats=Math.min(60,Math.max(0,parseInt(e.target.value)||0)); if(def.row){ it.w=+(Math.max(1,it.seats)*0.5).toFixed(2); } else if(!it.preset||it.preset==='auto') Object.assign(it,tableSize(it.type,Math.max(1,it.seats),it.sides)); clampToRoom(it); syncSize(); refresh(); });
   const sd=$('#sSides'); if(sd) sd.addEventListener('change',e=>{ it.sides=e.target.value; if(!it.preset||it.preset==='auto') Object.assign(it,tableSize(it.type,Math.max(1,it.seats),it.sides)); clampToRoom(it); syncSize(); refresh(); });
   const sp=$('#sPreset'); if(sp) sp.addEventListener('change',e=>{ if(e.target.value==='custom') it.preset='custom'; else applyPreset(it,e.target.value); clampToRoom(it); syncSize(); refresh(); });
-  $('#sW').addEventListener('change',e=>{ const v=fromU(Math.max(0.05,parseFloat(e.target.value)||0.05)); it.w=v; if(isRound(it)||it.type==='square'||it.type==='plant'||it.type==='cake') it.h=v; markCustom(); clampToRoom(it); syncSize(); refresh(); });
-  const sH=$('#sH'); if(sH) sH.addEventListener('change',e=>{ it.h=fromU(Math.max(0.05,parseFloat(e.target.value)||0.05)); if(it.type==='square'){ it.w=it.h; } markCustom(); clampToRoom(it); syncSize(); refresh(); });
+  $('#sW').addEventListener('change',e=>{ const v=fromU(Math.max(0.05,parseFloat(e.target.value)||0.05)); it.w=v; if(isRound(it)||it.type==='square'||it.type==='plant'||it.type==='cake') it.h=v; if(it.type==='semi') it.h=+(v/2).toFixed(2); markCustom(); clampToRoom(it); syncSize(); refresh(); });
+  const sH=$('#sH'); if(sH) sH.addEventListener('change',e=>{ it.h=fromU(Math.max(0.05,parseFloat(e.target.value)||0.05)); if(it.type==='square'){ it.w=it.h; } if(it.type==='semi'){ it.w=+(it.h*2).toFixed(2); } markCustom(); clampToRoom(it); syncSize(); refresh(); });
   const setRot=r=>{ it.r=((r%360)+360)%360; $('#sRot').value=Math.round(it.r); refresh(); };
   $('#sRot').addEventListener('change',e=>setRot(parseFloat(e.target.value)||0));
   $('#rotL').addEventListener('click',()=>setRot((it.r||0)-90)); $('#rotR').addEventListener('click',()=>setRot((it.r||0)+90));
@@ -877,6 +888,7 @@ function hitTest(px,py){
   for(let i=state.items.length-1;i>=0;i--){ const it=state.items[i]; const l=toLocal(it,px,py);
     const m=isTable(it)? (it.type==='poseur'?0.35:CH+CH_GAP) : Math.max(0.08,6/view.S);
     if(isRound(it)){ if(Math.hypot(l.x,l.y)<=it.w/2+m) return it; }
+    else if(it.type==='oval'){ const rx=it.w/2+m, ry=it.h/2+m; if((l.x*l.x)/(rx*rx)+(l.y*l.y)/(ry*ry)<=1) return it; }
     else if(Math.abs(l.x)<=it.w/2+m && Math.abs(l.y)<=it.h/2+m) return it; }
   return null; }
 function hitHandle(it,px,py){ const l=toLocal(it,px,py); const tol=10/view.S; const hs=handleSpots(it,view.S);
@@ -922,7 +934,7 @@ cv.addEventListener('pointermove',e=>{
   else if(drag.kind==='resize'){
     const A=rot(drag.anchor.x,drag.anchor.y,-(it.r||0)), P=rot(p.x,p.y,-(it.r||0)); const MIN=0.2;
     if(isRound(it)||it.type==='plant'||it.type==='cake'){ const l=toLocal(it,p.x,p.y); const d=Math.max(MIN,snap(2*Math.max(Math.abs(l.x),Math.abs(l.y)))); it.w=it.h=d; }
-    else { let w=Math.max(MIN,snap(Math.abs(P.x-A.x))), h=Math.max(MIN,snap(Math.abs(P.y-A.y))); if(it.type==='square') w=h=Math.max(w,h);
+    else { let w=Math.max(MIN,snap(Math.abs(P.x-A.x))), h=Math.max(MIN,snap(Math.abs(P.y-A.y))); if(it.type==='square') w=h=Math.max(w,h); if(it.type==='semi'){ w=Math.max(w,h*2); h=w/2; }
       const C=rot(A.x+drag.sx*w/2,A.y+drag.sy*h/2,it.r||0); it.w=w; it.h=h; it.x=C.x; it.y=C.y; if(it.type==='chairrow') it.seats=Math.max(1,Math.round(it.w/0.5)); }
     if(isTable(it)){ it.preset='custom'; const sp=$('#sPreset'); if(sp) sp.value='custom'; }
     const sw=$('#sW'), sh=$('#sH'), ssn=$('#sSeats'); if(sw) sw.value=toU(it.w).toFixed(2); if(sh) sh.value=toU(it.h).toFixed(2); if(ssn&&it.type==='chairrow') ssn.value=it.seats;
