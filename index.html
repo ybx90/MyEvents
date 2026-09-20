@@ -838,7 +838,7 @@ function renderSel(){
   else h+=`<div class="field"><label for="sLabel">Label</label><input id="sLabel" value="${esc(it.label||'')}" maxlength="40"></div>`;
   if(def.table||def.row){
     h+=`<div class="row mt"><div class="field"><label for="sSeats">Chairs</label><input id="sSeats" type="number" min="0" max="60" value="${it.seats}"></div>`;
-    if(def.table&&!isRound(it)) h+=`<div class="field"><label for="sSides">Chairs on</label><select id="sSides"><option value="both"${it.sides!=='one'?' selected':''}>All sides</option><option value="one"${it.sides==='one'?' selected':''}>One side only</option></select></div>`;
+    if(def.table&&!isRound(it)&&it.type!=='semi'&&it.type!=='oval') h+=`<div class="field"><label for="sSides">Chairs on</label><select id="sSides"><option value="both"${it.sides!=='one'?' selected':''}>All sides</option><option value="one"${it.sides==='one'?' selected':''}>One side only</option></select></div>`;
     else if(def.table&&it.type==='round'){ const fam=family(it); const cur=it.preset||'auto'; const keys=Object.keys(PRESETS).filter(k=>k[0]===fam);
       h+=`<div class="field"><label for="sPreset">Size</label><select id="sPreset"><option value="auto"${cur==='auto'?' selected':''}>Auto</option>${keys.map(k=>`<option value="${k}"${cur===k?' selected':''}>${PRESET_NAMES[k]}</option>`).join('')}<option value="custom"${cur==='custom'?' selected':''}>Custom</option></select></div>`; }
     h+=`</div>`;
