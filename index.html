@@ -284,6 +284,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
           <div class="field"><label for="units">Units</label><select id="units"><option value="m">metres</option><option value="ft">feet</option></select></div>
         </div>
         <div class="corners" id="corners"></div>
+        <div class="field mt"><label>Turn the whole plan</label><div class="row3"><button class="btn" id="planRotL" type="button" title="Rotate everything 90° anticlockwise">⟲ 90°</button><button class="btn" id="planRotR" type="button" title="Rotate everything 90° clockwise">⟳ 90°</button><button class="btn" id="planFlipH" type="button" title="Mirror everything left to right">⇄ Flip</button></div></div>
         <div class="field mt"><label for="hallSel">Saved halls</label><div class="hallrow"><select id="hallSel"><option value="">— choose a hall —</option></select><button class="btn" id="hallSave" type="button" title="Save this room (size, corners, stage, bar, pillars, doors…) under its name so you can reuse it">Save hall</button><button class="btn danger icon" id="hallDel" type="button" title="Delete the chosen saved hall">×</button></div></div>
       </div></details>
 
@@ -1018,6 +1019,23 @@ $('#cal').addEventListener('click',e=>{ e.stopPropagation(); const nav=e.target.
   const d=e.target.closest('[data-iso]'); if(d){ state.date=d.dataset.iso||''; fillRoomInputs(); refresh(); closeCal(); } });
 document.addEventListener('click',e=>{ if(!$('#cal').hidden&&!$('#cal').contains(e.target)&&e.target!==$('#evDate')) closeCal(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('#cal').hidden) closeCal(); });
+
+// ---------- turn the whole plan ----------
+function transformPlan(mode){ const r=state.room, W=r.w, D=r.d, c=r.cuts||{}; const cut=k=>{ const v=c[k]; return (v&&v.w>0&&v.d>0)?{w:v.w,d:v.d}:null; };
+  const swap=o=>o?{w:o.d,d:o.w}:null; let nc;
+  if(mode==='cw'){ r.w=D; r.d=W; nc={tl:swap(cut('bl')),tr:swap(cut('tl')),br:swap(cut('tr')),bl:swap(cut('br'))}; }
+  else if(mode==='ccw'){ r.w=D; r.d=W; nc={tl:swap(cut('tr')),bl:swap(cut('tl')),br:swap(cut('bl')),tr:swap(cut('br'))}; }
+  else { nc={tl:cut('tr'),tr:cut('tl'),bl:cut('br'),br:cut('bl')}; }
+  r.cuts=nc;
+  state.items.forEach(it=>{ const x=it.x, y=it.y;
+    if(mode==='cw'){ it.x=D-y; it.y=x; it.r=(((it.r||0)+90)%360+360)%360; }
+    else if(mode==='ccw'){ it.x=y; it.y=W-x; it.r=(((it.r||0)-90)%360+360)%360; }
+    else { it.x=W-x; it.r=(360-(it.r||0))%360; if(it.type==='semi'||it.type==='door') it.r=(((it.r||0)+180)%360+360)%360; }
+    clampToRoom(it); });
+  limitCuts(); state.items.forEach(clampToRoom); closeInline(); fillRoomInputs(); renderSel(); zoomFit(); refresh(); }
+$('#planRotL').addEventListener('click',()=>{ transformPlan('ccw'); toast('Plan turned 90° anticlockwise'); });
+$('#planRotR').addEventListener('click',()=>{ transformPlan('cw'); toast('Plan turned 90° clockwise'); });
+$('#planFlipH').addEventListener('click',()=>{ transformPlan('flip'); toast('Plan mirrored left to right'); });
 
 // ---------- saved halls (room + fixed features, reusable across projects) ----------
 let halls=[]; try{ const hh=JSON.parse(localStorage.getItem('myevents-halls')); if(Array.isArray(hh)) halls=hh.filter(x=>x&&x.room&&x.name); }catch(e){}
