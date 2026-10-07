@@ -1100,7 +1100,7 @@ $('#gPaste').addEventListener('click',()=>{ $('#pasteBox').hidden=false; $('#pas
 $('#pasteCancel').addEventListener('click',()=>{ $('#pasteBox').hidden=true; });
 $('#pasteGo').addEventListener('click',()=>{ const t=$('#pasteArea').value; if(!t.trim()) return; $('#pasteArea').value=''; $('#pasteBox').hidden=true; addGuests(parseRows(parseCsv(t))); });
 arm('gClear','Remove all',()=>{ state.guests=[]; renderGuestView(); guestChanged(); toast('Guest list cleared — Undo brings it back'); });
-$('#gExport').addEventListener('click',()=>busy($('#gExport'),'…',async()=>{ normalizeSeats(); const q=s=>'"'+String(s).replace(/"/g,'""')+'"'; const sp=!!state.split; const secName=t=>t.section==='men'?'Men':t.section==='women'?'Women':''; const rows=[sp?['Section','Table','Seat','Name']:['Table','Seat','Name']];
+$('#gExport').addEventListener('click',()=>busy($('#gExport'),'…',async()=>{ normalizeSeats(); const q=s=>'"'+String(s).replace(/"/g,'""')+'"'; const sp=state.split||state.items.some(t=>isTable(t)&&sectionOf(t)); const secName=t=>t.section==='men'?'Men':t.section==='women'?'Women':''; const rows=[sp?['Section','Table','Seat','Name']:['Table','Seat','Name']];
   const order=sp? tablesSorted().sort((p,q)=>({men:0,women:1}[p.section]??2)-({men:0,women:1}[q.section]??2)) : tablesSorted();
   order.forEach(t=>{ state.guests.filter(g=>g.table===t.id).sort((p,r)=>(p.seat||99)-(r.seat||99)).forEach(g=>rows.push(sp?[secName(t),tableName(t),g.seat||'',g.name]:[tableName(t),g.seat||'',g.name])); });
   state.guests.filter(g=>!g.table).forEach(g=>rows.push(sp?['','','',g.name]:['','',g.name]));
@@ -1219,23 +1219,61 @@ async function makePDF(){
   return pdf;
 }
 function addSeatingPages(pdf,PW,PH,M,A3){
-  normalizeSeats(); const g=state.guests; const grp=t=>({title:tableTitle(t),seats:t.seats,names:g.filter(x=>x.table===t.id).sort((p,q)=>(p.seat||99)-(q.seat||99)).map(x=>(x.seat?x.seat+'.':'+')+'  '+x.name)});
-  let groups=[]; if(state.split){ [['men','MEN'],['women','WOMEN'],['','NOT SORTED']].forEach(([k,ttl])=>{ const list=tablesSorted().filter(t=>sectionOf(t)===k).map(grp).filter(x=>x.names.length); if(list.length){ groups.push({heading:ttl}); groups=groups.concat(list); } }); } else groups=tablesSorted().map(grp).filter(x=>x.names.length);
-  const un=g.filter(x=>!x.table||!byId(x.table)).map(x=>'–  '+x.name); if(un.length) groups.push({title:'Not seated yet',seats:0,names:un});
-  const cols=PW>PH?3:2, gap=8, colW=(PW-2*M-(cols-1)*gap)/cols; const fsT=A3?12:10.5, fsN=A3?10.5:9; const lhT=fsT*0.5, lhN=fsN*0.46; const top=M+22, bottom=PH-M-6;
-  let page=0; const header=()=>{ pdf.addPage(); page++; pdf.setFont('helvetica','bold'); pdf.setFontSize(A3?16:13); pdf.setTextColor(15,17,20); pdf.text((state.job||state.room.name||'Room plan')+'  —  Seating list',M,M+5);
-    pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor(110,105,95); const sub=[state.job?state.room.name:'',fmtDate(state.date,true),g.length+' guests'].filter(Boolean).join('   ·   '); pdf.text(sub,M,M+10.5);
-    pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.4); pdf.line(M,M+13,PW-M,M+13); pdf.setFontSize(8); pdf.text('MY Events  ·  seating list p.'+page,PW-M,PH-M+1,{align:'right'}); };
-  header(); let col=0, y=top;
-  const newCol=()=>{ col++; y=top; if(col>=cols){ header(); col=0; } };
-  groups.forEach(gr=>{ if(gr.heading){ if(y+lhT*2.4+lhN*3>bottom) newCol(); if(y!==top) y+=lhT*0.6; const x=M+col*(colW+gap); pdf.setFont('helvetica','bold'); pdf.setFontSize(fsT+1.5); pdf.setTextColor(164,132,46); pdf.text(gr.heading,x,y); pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.6); pdf.line(x,y+2,x+colW,y+2); y+=lhT*2.2; return; }
-    const need=lhT+3.5+Math.min(gr.names.length,6)*lhN; if(y+need>bottom) newCol();
-    const x=M+col*(colW+gap); pdf.setFont('helvetica','bold'); pdf.setFontSize(fsT); pdf.setTextColor(15,17,20); pdf.text(pdf.splitTextToSize(gr.title+(gr.seats?'   ('+gr.names.length+' of '+gr.seats+')':'   ('+gr.names.length+')'),colW)[0],x,y);
-    pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.3); pdf.line(x,y+1.6,x+colW*0.35,y+1.6); y+=lhT+3.5;
-    pdf.setFont('helvetica','normal'); pdf.setFontSize(fsN); pdf.setTextColor(40,42,48);
-    gr.names.forEach(n=>{ if(y+lhN>bottom){ newCol(); pdf.setFont('helvetica','normal'); pdf.setFontSize(fsN); pdf.setTextColor(40,42,48); } const xx=M+col*(colW+gap); pdf.text(pdf.splitTextToSize(n,colW)[0],xx,y); y+=lhN; });
-    y+=lhN*1.4; });
+  normalizeSeats(); const g=state.guests;
+  const grp=t=>({title:tableTitle(t),seats:t.seats,names:g.filter(x=>x.table===t.id).sort((p,q)=>(p.seat||99)-(q.seat||99)).map(x=>(x.seat?x.seat+'.':'+')+'  '+x.name)});
+  // one section per page whenever any table has a side, whether or not the Guests view is split
+  const sided=state.items.some(t=>isTable(t)&&sectionOf(t));
+  const sections=[];
+  if(sided){ [['men','MEN'],['women','WOMEN'],['','OTHER TABLES']].forEach(([k,ttl])=>{ const list=tablesSorted().filter(t=>sectionOf(t)===k).map(grp).filter(x=>x.names.length); if(list.length) sections.push({heading:ttl,blocks:list}); }); }
+  else { const list=tablesSorted().map(grp).filter(x=>x.names.length); if(list.length) sections.push({heading:'',blocks:list}); }
+  const un=g.filter(x=>!x.table||!byId(x.table)).map(x=>'–  '+x.name);
+  if(un.length) sections.push({heading:sided?'NOT SEATED YET':'',blocks:[{title:'Not seated yet',seats:0,names:un}]});
+  if(!sections.length) return;
+  const cols=PW>PH?3:2, gap=8, colW=(PW-2*M-(cols-1)*gap)/cols, bottom=PH-M-6, MINRUN=3;
+  // lay a section out at a given type scale; returns the pages it needs, drawing only when asked
+  function run(sec,scale,draw){
+    const fsT=(A3?12:10.5)*scale, fsN=(A3?10.5:9)*scale, lhT=fsT*0.5, lhN=fsN*0.46, headH=lhT+3.5*scale, pad=lhN*1.6;
+    let page=0, col=0, y=0, top=0;
+    const newPage=()=>{ page++; col=0;
+      if(draw){ pdf.addPage();
+        pdf.setFont('helvetica','bold'); pdf.setFontSize(A3?16:13); pdf.setTextColor(15,17,20);
+        const ttl=sec.heading? '  ·  '+sec.heading.charAt(0)+sec.heading.slice(1).toLowerCase() : '';
+        pdf.text((state.job||state.room.name||'Room plan')+'  —  Seating list'+ttl,M,M+5);
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(9); pdf.setTextColor(110,105,95);
+        pdf.text([state.job?state.room.name:'',fmtDate(state.date,true),g.length+' guests'].filter(Boolean).join('   ·   '),M,M+10.5);
+        pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.4); pdf.line(M,M+13,PW-M,M+13);
+        pdf.setFontSize(8); pdf.text('MY Events  ·  seating list'+(sec.heading?' · '+sec.heading.toLowerCase():'')+'  p.'+page,PW-M,PH-M+1,{align:'right'}); }
+      y=M+22;
+      if(sec.heading){ if(draw){ pdf.setFont('helvetica','bold'); pdf.setFontSize(fsT+2); pdf.setTextColor(164,132,46); pdf.text(sec.heading,M,y);
+          pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.6); pdf.line(M,y+2,PW-M,y+2); } y+=lhT*2.2; }
+      top=y; };
+    const newCol=()=>{ col++; if(col>=cols) newPage(); else y=top; };
+    const title=(gr,x,cont)=>{ if(draw){ pdf.setFont('helvetica','bold'); pdf.setFontSize(fsT); pdf.setTextColor(15,17,20);
+        pdf.text(pdf.splitTextToSize(gr.title+'   ('+gr.names.length+(gr.seats?' of '+gr.seats:'')+')'+(cont?'  cont.':''),colW)[0],x,y);
+        pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.3); pdf.line(x,y+1.6,x+colW*0.35,y+1.6);
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(fsN); pdf.setTextColor(40,42,48); } y+=headH; };
+    newPage();
+    sec.blocks.forEach(gr=>{
+      const full=headH+gr.names.length*lhN;
+      if(full<=bottom-top){ if(y+full>bottom) newCol(); const x=M+col*(colW+gap); title(gr,x,false);
+        gr.names.forEach(n=>{ if(draw) pdf.text(pdf.splitTextToSize(n,colW)[0],x,y); y+=lhN; }); }
+      else { let i=0, part=0;
+        while(i<gr.names.length){
+          if(y+headH+MINRUN*lhN>bottom) newCol();
+          const x=M+col*(colW+gap); title(gr,x,part>0);
+          let room=Math.max(MINRUN,Math.floor((bottom-y)/lhN)); const left=gr.names.length-i;
+          if(left-room>0&&left-room<MINRUN) room=Math.max(MINRUN,left-MINRUN);
+          const take=Math.min(room,left);
+          for(let k=0;k<take;k++){ if(draw) pdf.text(pdf.splitTextToSize(gr.names[i+k],colW)[0],x,y); y+=lhN; }
+          i+=take; part++; if(i<gr.names.length) newCol(); } }
+      y+=pad; });
+    return page; }
+  // shrink the type a little if that keeps a whole side on one page
+  sections.forEach(sec=>{ let best=0.7;
+    for(const s of [1,0.96,0.92,0.88,0.84,0.8,0.76,0.72]){ if(run(sec,s,false)<=1){ best=s; break; } }
+    run(sec,best,true); });
 }
+
 async function makePNG(){
   const {w,d}=state.room; const W=2400, HDR=330, pad=0.9; const areaH=Math.min(3600,Math.round(W*(d+2*pad)/(w+2*pad)));
   const c=document.createElement('canvas'); c.width=W; c.height=HDR+areaH+70; const ctx=c.getContext('2d');
