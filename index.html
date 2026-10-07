@@ -175,6 +175,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .seat .n.grip::before{content:"⋮";margin-right:4px;color:var(--line-strong)}
 .seat.dropover,.gcard header.dropover{background:var(--gold-soft)}
 .seat.dragging{opacity:.4}
+.gcard header b{white-space:nowrap}
 .selguests{font-size:11.5px;line-height:1.5;margin-top:6px}
 .selguests span{white-space:nowrap}
 .selguests i{color:var(--muted);font-style:normal;font-variant-numeric:tabular-nums}
@@ -544,7 +545,10 @@ function drawChair(ctx,c,S,pal,lw,idx,opt){
   num(s);
   ctx.restore();
 }
-function tableName(it){ return (it.label||'').trim()||String(it.num||''); }
+const sideLetter=t=>t.section==='men'?'M':t.section==='women'?'W':'';
+const sideName=t=>t.section==='men'?'Men':t.section==='women'?'Women':'';
+// what the table is called on the plan: M1 / W1 when it has a side, else the number
+function tableName(it){ const n=Number.isInteger(it.num)?String(it.num):''; return n? sideLetter(it)+n : (it.label||'').trim(); }
 function drawItem(ctx,it,S,ox,oy,pal,opt){
   const def=DEFS[it.type]; const deg=((it.r||0)%360+360)%360; const flip=deg>90&&deg<270;
   ctx.save(); ctx.translate(ox+it.x*S,oy+it.y*S); ctx.rotate(deg*Math.PI/180);
@@ -572,20 +576,25 @@ function drawItem(ctx,it,S,ox,oy,pal,opt){
     else if(it.type==='oval'){ ctx.beginPath(); ctx.ellipse(0,0,w/2,h/2,0,0,Math.PI*2); ctx.fill(); ctx.stroke(); }
     else if(it.type==='semi'){ ctx.beginPath(); ctx.moveTo(-w/2,h/2); ctx.arc(0,h/2,w/2,Math.PI,Math.PI*2); ctx.closePath(); ctx.fill(); ctx.stroke(); }
     else { box(); ctx.fill(); ctx.stroke(); }
-    const name=tableName(it); const gc=(state.guests||[]).reduce((a,g)=>a+(g.table===it.id?1:0),0); const seatsTxt=gc?`${gc} of ${it.seats}`:(it.seats+(it.seats===1?' seat':' seats'));
+    const name=tableName(it)||'·'; const lbl=(it.label||'').trim(); const showLbl=Number.isInteger(it.num)&&lbl;
+    const gc=(state.guests||[]).reduce((a,g)=>a+(g.table===it.id?1:0),0); const seatsTxt=gc?`${gc} of ${it.seats}`:(it.seats+(it.seats===1?' seat':' seats'));
     ctx.save(); if(flip) ctx.rotate(Math.PI); ctx.fillStyle=pal.ink; ctx.textAlign='center'; ctx.textBaseline='middle';
-    if(it.type==='poseur'){ const big=Math.max(7,Math.min(w*0.5,w/(name.length*0.7))); ctx.font=`500 ${big}px "Bodoni Moda", Didot, serif`; ctx.fillText(name,0,0); }
+    const SER='"Bodoni Moda", Didot, "Times New Roman", serif', SANS='Montserrat, system-ui, sans-serif';
+    if(it.type==='poseur'){ const big=Math.max(7,Math.min(w*0.5,w/(name.length*0.7))); ctx.font=`500 ${big}px ${SER}`; ctx.fillText(name,0,0); }
     else if(h>=S*0.9){
-      const big=Math.max(9,Math.min(Math.min(w,h)*0.38, w/(name.length*0.6))); const sm=Math.max(minFs,Math.min(big*0.42,S*0.2));
-      ctx.font=`500 ${big}px "Bodoni Moda", Didot, "Times New Roman", serif`; ctx.fillText(name,0,-sm*0.55);
-      ctx.font=`500 ${sm}px Montserrat, system-ui, sans-serif`; ctx.fillStyle=pal.muted; ctx.fillText(seatsTxt,0,big*0.5+sm*0.2);
+      const big=Math.max(9,Math.min(Math.min(w,h)*0.36, w/(name.length*0.6))); const sm=Math.max(minFs,Math.min(big*0.4,S*0.18)); const lh=sm*1.18;
+      const subs=(showLbl?[lbl]:[]).concat([seatsTxt]).slice(0,Math.max(1,Math.floor((h/2-big*0.55)/lh)));
+      const total=big+subs.length*lh; let y=-total/2+big/2;
+      ctx.font=`500 ${big}px ${SER}`; ctx.fillText(name,0,y); y+=big/2+lh*0.62;
+      subs.forEach((t,i)=>{ ctx.font=`${i===0&&showLbl?600:500} ${sm}px ${SANS}`; ctx.fillStyle=(i===0&&showLbl)?pal.ink:pal.muted; ctx.fillText(t,0,y+i*lh); });
     } else {
+      const sub=showLbl?lbl:seatsTxt;
       const big=Math.max(8,Math.min(h*0.62,S*0.34,w/(name.length*0.6))); const sm=Math.max(minFs,big*0.5);
-      ctx.font=`500 ${big}px "Bodoni Moda", Didot, "Times New Roman", serif`; const bw=ctx.measureText(name).width;
-      ctx.font=`500 ${sm}px Montserrat, system-ui, sans-serif`; const sw=ctx.measureText(seatsTxt).width; const gap=sm*0.8;
+      ctx.font=`500 ${big}px ${SER}`; const bw=ctx.measureText(name).width;
+      ctx.font=`${showLbl?600:500} ${sm}px ${SANS}`; const sw=ctx.measureText(sub).width; const gap=sm*0.8;
       const total=bw+gap+sw; const fits=total<w-lw*4; const x0=fits?-total/2:-bw/2;
-      ctx.font=`500 ${big}px "Bodoni Moda", Didot, "Times New Roman", serif`; ctx.textAlign='left'; ctx.fillText(name,x0,0);
-      if(fits){ ctx.font=`500 ${sm}px Montserrat, system-ui, sans-serif`; ctx.fillStyle=pal.muted; ctx.fillText(seatsTxt,x0+bw+gap,sm*0.08); }
+      ctx.font=`500 ${big}px ${SER}`; ctx.textAlign='left'; ctx.fillText(name,x0,0);
+      if(fits){ ctx.font=`${showLbl?600:500} ${sm}px ${SANS}`; ctx.fillStyle=showLbl?pal.ink:pal.muted; ctx.fillText(sub,x0+bw+gap,sm*0.08); }
     }
     ctx.restore();
   } else switch(it.type){
@@ -832,7 +841,8 @@ function setTableNum(it,n){ if(!Number.isInteger(n)||n<0) return; it.num=n; }
 function renderSel(){
   const it=byId(state.sel); const sec=$('#secSel'), body=$('#selBody'); sec.hidden=!it; if(!it){ body.innerHTML=''; return; }
   sec.open=true; const def=DEFS[it.type], u=uName(), st=uStep(); $('#selKind').textContent=def.name; let h='';
-  if(def.table){ h+=`<div class="row"><div class="field"><label for="sNum">Table number</label><input id="sNum" type="number" min="0" value="${it.num||''}"></div><div class="field"><label for="sLabel">Name (optional)</label><input id="sLabel" value="${esc(it.label||'')}" maxlength="40" placeholder="e.g. Top table"></div></div>`;
+  if(def.table){ h+=`<div class="row"><div class="field"><label for="sNum">Table number</label><input id="sNum" type="number" min="0" value="${it.num||''}"></div><div class="field"><label for="sSide">Side</label><select id="sSide"><option value=""${!it.section?' selected':''}>— none —</option><option value="men"${it.section==='men'?' selected':''}>Men (M)</option><option value="women"${it.section==='women'?' selected':''}>Women (W)</option></select></div></div>`;
+    h+=`<div class="field mt"><label for="sLabel">Name (optional)</label><input id="sLabel" value="${esc(it.label||'')}" maxlength="40" placeholder="e.g. Top table"></div>`;
     const gs=state.guests.filter(x=>x.table===it.id).sort((p,q)=>(p.seat||99)-(q.seat||99));
     h+=`<div class="selguests">${gs.length? gs.map(x=>`<span><i>${x.seat||'·'}</i> ${esc(x.name)}</span>`).join(' &nbsp;·&nbsp; ') : '<i>No guests on this table yet.</i>'}</div><div class="actions"><button class="btn" id="selGuests" type="button">${gs.length?'Edit guests':'Add guests'} →</button></div>`; }
   else if(it.type==='text') h+=`<div class="field"><label for="sLabel">Text</label><textarea id="sLabel" rows="3" maxlength="300">${esc(it.label||'')}</textarea></div>`;
@@ -857,6 +867,7 @@ function renderSel(){
   $('#sLabel').addEventListener('input',e=>{ it.label=e.target.value; refresh(); });
   const sg=$('#selGuests'); if(sg) sg.addEventListener('click',()=>showTableGuests(it));
   const sn=$('#sNum'); if(sn) sn.addEventListener('change',e=>{ setTableNum(it,parseInt(e.target.value,10)); e.target.value=it.num; refresh(); });
+  const sS=$('#sSide'); if(sS) sS.addEventListener('change',e=>{ it.section=e.target.value||null; lastTableSig=''; if(curView==='guests') renderGuestView(); refresh(); });
   const ss=$('#sSeats'); if(ss) ss.addEventListener('input',e=>{ it.seats=Math.min(60,Math.max(0,parseInt(e.target.value)||0)); if(def.row){ it.w=+(Math.max(1,it.seats)*0.5).toFixed(2); } else if(!it.preset||it.preset==='auto') Object.assign(it,tableSize(it.type,Math.max(1,it.seats),it.sides)); clampToRoom(it); syncSize(); refresh(); });
   const sd=$('#sSides'); if(sd) sd.addEventListener('change',e=>{ it.sides=e.target.value; if(!it.preset||it.preset==='auto') Object.assign(it,tableSize(it.type,Math.max(1,it.seats),it.sides)); clampToRoom(it); syncSize(); refresh(); });
   const sp=$('#sPreset'); if(sp) sp.addEventListener('change',e=>{ if(e.target.value==='custom') it.preset='custom'; else applyPreset(it,e.target.value); clampToRoom(it); syncSize(); refresh(); });
@@ -874,9 +885,9 @@ function removeItem(id){ state.items=state.items.filter(i=>i.id!==id); if(state.
 // ---------- inline rename / renumber on the plan ----------
 let inlineEl=null, inlineApply=null;
 function openInline(it){ closeInline(); const st=$('.stage'); const inp=document.createElement('input'); inp.className='inline'+(isTable(it)?'':' txt');
-  const orig= isTable(it)? tableName(it) : String(it.label||'').split('\n')[0]; inp.value=orig; inp.style.left=(view.ox+it.x*view.S)+'px'; inp.style.top=(view.oy+it.y*view.S)+'px'; inp.setAttribute('aria-label','Rename');
+  const orig= isTable(it)? (Number.isInteger(it.num)?String(it.num):(it.label||'')) : String(it.label||'').split('\n')[0]; inp.value=orig; inp.style.left=(view.ox+it.x*view.S)+'px'; inp.style.top=(view.oy+it.y*view.S)+'px'; inp.setAttribute('aria-label','Rename');
   st.appendChild(inp); inlineEl=inp; inp.focus(); inp.select(); let done=false;
-  const apply=()=>{ if(done) return false; done=true; const v=inp.value.trim(); if(v===orig) return false; if(isTable(it)){ if(/^\d+$/.test(v)){ setTableNum(it,parseInt(v,10)); it.label=''; } else it.label=v; } else it.label=v; return true; };
+  const apply=()=>{ if(done) return false; done=true; const v=inp.value.trim(); if(v===orig) return false; if(isTable(it)){ if(/^\d+$/.test(v)) setTableNum(it,parseInt(v,10)); else it.label=v; } else it.label=v; return true; };
   inlineApply=apply;
   inp.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter'){ e.preventDefault(); closeInline(); } else if(e.key==='Escape'){ e.preventDefault(); done=true; closeInline(); } });
   inp.addEventListener('blur',()=>{ if(inlineEl===inp) closeInline(); }); }
@@ -1001,8 +1012,12 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!pm.hidden) toggle
 ['pNew','pDup','pBackup','pRestore'].forEach(id=>$('#'+id).addEventListener('click',()=>toggleMenu(false)));
 $('#pNew').addEventListener('click',()=>{ const s=blank(); s.units=state.units; s.paper=state.paper; newProject(s); $('#jobName').focus(); });
 $('#pDup').addEventListener('click',()=>{ save(); const d=JSON.parse(JSON.stringify(state)); d.job=(d.job||d.room.name||'Untitled')+' (copy)'; newProject(d); toast('Project duplicated'); });
-$('#renumber').addEventListener('click',()=>{ const tables=state.items.filter(isTable).slice().sort((a,b)=>a.y-b.y); const rows=[]; tables.forEach(t=>{ const r=rows.find(r=>Math.abs(r.y-t.y)<1.2); if(r) r.items.push(t); else rows.push({y:t.y,items:[t]}); });
-  let n=1; rows.forEach(r=>r.items.sort((a,b)=>a.x-b.x).forEach(t=>{ t.num=n++; })); renderSel(); refresh(); toast('Tables numbered left to right, front to back'); });
+function numberGroup(list){ const rows=[]; list.slice().sort((a,b)=>a.y-b.y).forEach(t=>{ const r=rows.find(r=>Math.abs(r.y-t.y)<1.2); if(r) r.items.push(t); else rows.push({y:t.y,items:[t]}); });
+  let n=1; rows.forEach(r=>r.items.sort((a,b)=>a.x-b.x).forEach(t=>{ t.num=n++; })); }
+$('#renumber').addEventListener('click',()=>{ const all=state.items.filter(isTable); const sided=all.some(t=>t.section);
+  if(sided){ ['men','women',''].forEach(s=>numberGroup(all.filter(t=>(t.section||'')===s))); } else numberGroup(all);
+  lastTableSig=''; renderSel(); refresh(); if(curView==='guests') renderGuestView();
+  toast(sided?'Tables numbered left to right, front to back — men and women numbered separately':'Tables numbered left to right, front to back'); });
 
 // ---------- calendar popup ----------
 const isoOf=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -1054,9 +1069,12 @@ let curView='plan';
 function setView(v){ curView=v; document.querySelectorAll('.vbtn').forEach(x=>x.classList.toggle('on',x.dataset.view===v)); $('#gview').hidden=v!=='guests'; $('.stage').hidden=v!=='plan'; $('.main').classList.toggle('guests',v==='guests'); closeInline(); if(v==='guests') renderGuestView(); else draw(); }
 document.querySelectorAll('.vbtn').forEach(x=>x.addEventListener('click',()=>setView(x.dataset.view)));
 function tablesSorted(){ return state.items.filter(isTable).slice().sort((p,q)=>(p.num||0)-(q.num||0)||tableName(p).localeCompare(tableName(q))); }
-function tableTitle(t){ const n=Number.isInteger(t.num)?'Table '+t.num:''; const l=(t.label||'').trim(); return n&&l? n+' · '+l : (n||l||'Table'); }
-function tableByKey(key){ if(key==null) return null; const k=String(key).trim().toLowerCase().replace(/^(table|tbl)\s*[:#.\-]?\s*/,''); if(!k) return null;
-  return state.items.find(t=>isTable(t)&&(String(t.num)===k||(t.label||'').trim().toLowerCase()===k))||null; }
+function tableTitle(t){ const s=sideName(t); const n=Number.isInteger(t.num)?('Table '+t.num+(s?' ('+s+')':'')):''; const l=(t.label||'').trim(); return n&&l? n+' · '+l : (n||l||'Table'); }
+function tableByKey(key){ if(key==null) return null; let k=String(key).trim().toLowerCase().replace(/^(table|tbl)\s*[:#.\-]?\s*/,''); if(!k) return null;
+  let sec=null, m=/^(m|men|mens|gents)[\s\-:.#]*(\d+)$/.exec(k); if(m){ sec='men'; k=m[2]; }
+  else { m=/^(w|women|womens|ladies)[\s\-:.#]*(\d+)$/.exec(k); if(m){ sec='women'; k=m[2]; } }
+  const hit=t=>isTable(t)&&(String(t.num)===k||(t.label||'').trim().toLowerCase()===k);
+  return sec? (state.items.find(t=>hit(t)&&t.section===sec)||null) : (state.items.find(hit)||null); }
 function normalizeSeats(){ state.guests.forEach(g=>{ if(!g.table||!byId(g.table)){ g.table=null; g.seat=null; } });
   tablesSorted().forEach(t=>{ const gs=state.guests.filter(g=>g.table===t.id); const used=new Set(), free=[];
     gs.forEach(g=>{ if(Number.isInteger(g.seat)&&g.seat>=1&&g.seat<=t.seats&&!used.has(g.seat)) used.add(g.seat); else free.push(g); });
@@ -1122,7 +1140,7 @@ let dragTable=null;
 function dropZone(el,key){ el.addEventListener('dragover',e=>{ if(!dragTable) return; e.preventDefault(); e.dataTransfer.dropEffect='move'; el.classList.add('dropover'); }); el.addEventListener('dragleave',e=>{ if(!el.contains(e.relatedTarget)) el.classList.remove('dropover'); });
   el.addEventListener('drop',e=>{ if(!dragTable) return; e.preventDefault(); el.classList.remove('dropover'); const t=byId(dragTable); dragTable=null; if(t&&(t.section||null)!==(key||null)){ t.section=key||null; renderGuestView(); guestChanged(); } }); }
 function guestCard(t){ const g=state.guests; const gs=g.filter(x=>x.table===t.id); const card=document.createElement('section'); card.className='gcard'; card.dataset.table=t.id;
-  card.innerHTML=`<header><b>${esc(String(Number.isInteger(t.num)?t.num:'·'))}</b><span class="lbl">${esc((t.label||'').trim()||DEFS[t.type].name)}</span><span class="cnt"></span></header>`; const hd=card.querySelector('header'); dropTarget(hd,t.id,null);
+  card.innerHTML=`<header><b>${esc(tableName(t)||'·')}</b><span class="lbl">${esc((t.label||'').trim()||DEFS[t.type].name)}</span><span class="cnt"></span></header>`; const hd=card.querySelector('header'); dropTarget(hd,t.id,null);
   if(state.split){ hd.classList.add('tdrag'); hd.draggable=true; hd.title='Drag this table to Men or Women'; hd.addEventListener('dragstart',e=>{ dragTable=t.id; e.dataTransfer.setData('text/plain','table:'+t.id); e.dataTransfer.effectAllowed='move'; card.classList.add('dragging'); }); hd.addEventListener('dragend',()=>{ card.classList.remove('dragging'); dragTable=null; }); }
   for(let k=1;k<=t.seats;k++) card.appendChild(seatRow(t,k,gs.find(x=>x.seat===k)||null,false));
   gs.filter(x=>!x.seat).forEach(gu=>card.appendChild(seatRow(t,null,gu,false)));
