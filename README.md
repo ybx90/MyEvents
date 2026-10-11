@@ -3,7 +3,7 @@
 Drag-and-drop room layout planner for events: tables with chairs, stage, dance floor,
 bar, partitions and other furniture on a scale plan, exported as a branded PDF or PNG.
 
-**Live site:** https://ybx90.github.io/MyEvents/
+**Live site:** https://myevents.party
 
 ## Files
 
