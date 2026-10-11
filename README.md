@@ -22,7 +22,7 @@ Cloud sync uses a free Supabase project: run supabase.sql once in the Supabase S
 
 ## Saving
 
-**Save** (top bar, Ctrl+S) writes the plan to a file on your computer; **Open** loads one. In Chrome/Edge it asks where to save the first time and then overwrites that file on later saves. The browser also autosaves silently as a safety net; **Backup all** in Project downloads every project in one file.
+**Save** (top bar, Ctrl+S) commits the plan to the cloud and this device — no file dialog. Everything also saves automatically as you work. Under **Project** there are file options when you want them: Save a copy as a file, Open a plan file, Backup all projects, Restore from a backup.
 
 ## Updating the site
 

@@ -242,11 +242,11 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
     <div class="logo"><canvas id="logoCv" width="300" height="450" aria-label="MY Events"></canvas></div>
     <div class="title"><select id="projSel" class="tsel" aria-label="Project"></select><span id="tStats"></span></div>
     <div class="tgroup proj"><button class="btn" id="projMenuBtn" type="button" aria-haspopup="true" aria-expanded="false">Project ▾</button>
-      <div class="menu" id="projMenu" hidden><button class="btn" id="pNew" type="button">New project</button><button class="btn" id="pDup" type="button">Duplicate this project</button><button class="btn danger" id="pDel" type="button">Delete this project</button><hr><button class="btn" id="pBackup" type="button">Backup all projects…</button><button class="btn" id="pRestore" type="button">Restore from a backup…</button><input type="file" id="restoreFile" accept=".json,application/json" hidden></div>
+      <div class="menu" id="projMenu" hidden><button class="btn" id="pNew" type="button">New project</button><button class="btn" id="pDup" type="button">Duplicate this project</button><button class="btn danger" id="pDel" type="button">Delete this project</button><hr><button class="btn" id="pSaveFile" type="button">Save a copy as a file…</button><button class="btn" id="pOpenFile" type="button">Open a plan file…</button><hr><button class="btn" id="pBackup" type="button">Backup all projects…</button><button class="btn" id="pRestore" type="button">Restore from a backup…</button><input type="file" id="restoreFile" accept=".json,application/json" hidden></div>
     </div>
     <div class="views" role="tablist"><button class="vbtn on" type="button" data-view="plan">Plan</button><button class="vbtn" type="button" data-view="guests">Guests<span id="vGuestCnt"></span></button></div>
     <div class="tgroup"><button class="btn icon" id="undo" type="button" title="Undo (Ctrl+Z)">↶</button><button class="btn icon" id="redo" type="button" title="Redo (Ctrl+Y)">↷</button></div>
-    <div class="tgroup"><button class="btn" id="openBtn" type="button" title="Open a saved plan file (Ctrl+O)">Open</button><button class="btn" id="saveBtn" type="button" title="Save this plan as a file on your computer (Ctrl+S)">Save</button><span class="saved" id="savedAt"></span><span class="sync" id="syncDot" title=""></span><input type="file" id="openFile" accept=".json,application/json" hidden></div>
+    <div class="tgroup"><button class="btn" id="saveBtn" type="button" title="Save now (Ctrl+S) — everything is kept in the cloud and on this device">Save</button><span class="saved" id="savedAt"></span><span class="sync" id="syncDot" title=""></span><input type="file" id="openFile" accept=".json,application/json" hidden></div>
     <div class="tgroup"><select id="paper" aria-label="Paper size"><option value="a4">A4</option><option value="a3">A3</option></select><button class="btn" id="png" type="button" title="Export the plan as a PNG image">PNG</button><button class="btn gold" id="dl" type="button">Download PDF</button></div>
   </header>
   <div class="main">
@@ -694,7 +694,7 @@ const byId=id=>state.items.find(i=>i.id===id);
 const lastJson=new Map(); const stateJson=s=>JSON.stringify(s,(k,v)=>k==='sel'?undefined:v);
 let storeOk=true;
 function saveStore(){ try{ const s=JSON.stringify(store); localStorage.setItem('myevents-projects',s); storeOk=localStorage.getItem('myevents-projects')===s; }catch(e){ storeOk=false; } if(!storeOk){ const el=$('#savedAt'); if(el) el.textContent='Browser autosave blocked — use Save'; } return storeOk; }
-function markSaved(){ if(!storeOk) return; fileDirty=true; setFileStatus(); }
+function markSaved(){ if(!storeOk) return; const d=new Date(); const el=$('#savedAt'); el.classList.remove('dirty'); el.textContent='Saved '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); el.title=fileName?('Also written to '+fileName+' when you use Save a copy as a file'):'Kept in the cloud and on this device'; }
 function save(){ const pr=curProj(); pr.data=state; const js=stateJson(state); if(lastJson.get(pr.id)!==js){ lastJson.set(pr.id,js); pr.updated=Date.now(); scheduleCloud(pr.id); markSaved(); } saveStore(); }
 function projName(pr){ const d=pr.data||{}; const n=[d.job,(d.room||{}).name].filter(Boolean).join(' – ')||'Untitled'; return d.date? n+' · '+fmtDate(d.date) : n; }
 function renderProjects(){ const sel=$('#projSel'); if(document.activeElement===sel) return; sel.innerHTML=''; store.projects.forEach(q=>{ const o=document.createElement('option'); o.value=q.id; o.textContent=projName(q); if(q.id===store.current) o.selected=true; sel.appendChild(o); }); }
@@ -976,7 +976,7 @@ cv.addEventListener('pointerup',endTouch); cv.addEventListener('pointercancel',e
 
 document.addEventListener('keydown',e=>{
   if(!$('#gate').hidden) return; const mod=e.ctrlKey||e.metaKey; const k=e.key;
-  if(mod&&(k==='s'||k==='S')){ e.preventDefault(); saveToFile(); return; }
+  if(mod&&(k==='s'||k==='S')){ e.preventDefault(); if(e.shiftKey) saveToFile(); else saveNow(); return; }
   if(mod&&(k==='o'||k==='O')){ e.preventDefault(); openFromFile(); return; }
   if(e.target.matches('input,select,textarea')) return;
   if(mod&&(k==='z'||k==='Z')){ e.preventDefault(); if(e.shiftKey) redo(); else undo(); return; }
@@ -997,7 +997,9 @@ document.addEventListener('keydown',e=>{
 
 // ---------- save, toast, project buttons ----------
 let tT; function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('on'); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove('on'),2800); }
-function saveNow(){ saveToFile(); }
+function saveNow(){ histCommit(); const pr=curProj(); pr.data=state; lastJson.set(pr.id,stateJson(state)); pr.updated=Date.now(); const ok=saveStore(); markSaved();
+  if(syncConfigured()){ queuePush(pr.id); halls.forEach(x=>{}); clearTimeout(sync.timer); flush(); toast(navigator.onLine?'Saved':'Saved on this device — it will reach the cloud when you are back online'); }
+  else toast(ok?'Saved on this device':'Could not save — this browser is blocking storage (private window?)'); }
 const arm=(id,label,fn)=>{ let t=null; $('#'+id).addEventListener('click',()=>{ const b=$('#'+id); if(t){ clearTimeout(t); t=null; b.textContent=label; fn(); return; } b.textContent='Click again to confirm'; t=setTimeout(()=>{ t=null; b.textContent=label; },3000); }); };
 arm('clear','Clear room',()=>{ state.items=[]; state.sel=null; closeInline(); renderSel(); refresh(); toast('Room cleared — Undo brings it back'); });
 arm('pDel','Delete',()=>{ const id=store.current; store.projects=store.projects.filter(q=>q.id!==id); queuePush(id);
@@ -1009,7 +1011,7 @@ function toggleMenu(open){ pm.hidden=!open; pmb.setAttribute('aria-expanded',ope
 pmb.addEventListener('click',e=>{ e.stopPropagation(); toggleMenu(pm.hidden); });
 document.addEventListener('click',e=>{ if(!pm.hidden&&!pm.contains(e.target)) toggleMenu(false); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!pm.hidden) toggleMenu(false); });
-['pNew','pDup','pBackup','pRestore'].forEach(id=>$('#'+id).addEventListener('click',()=>toggleMenu(false)));
+['pNew','pDup','pBackup','pRestore','pSaveFile','pOpenFile'].forEach(id=>$('#'+id).addEventListener('click',()=>toggleMenu(false)));
 $('#pNew').addEventListener('click',()=>{ const s=blank(); s.units=state.units; s.paper=state.paper; newProject(s); $('#jobName').focus(); });
 $('#pDup').addEventListener('click',()=>{ save(); const d=JSON.parse(JSON.stringify(state)); d.job=(d.job||d.room.name||'Untitled')+' (copy)'; newProject(d); toast('Project duplicated'); });
 function numberGroup(list){ const rows=[]; list.slice().sort((a,b)=>a.y-b.y).forEach(t=>{ const r=rows.find(r=>Math.abs(r.y-t.y)<1.2); if(r) r.items.push(t); else rows.push({y:t.y,items:[t]}); });
@@ -1166,12 +1168,13 @@ function showTableGuests(t){ setView('guests'); const card=document.querySelecto
 // ---------- save / open as a file ----------
 let fileHandle=null, fileName=null, fileDirty=false;
 const FILE_TYPES=[{description:'MY Events plan',accept:{'application/json':['.json']}}];
-function setFileStatus(){ const el=$('#savedAt'); if(!fileName){ el.textContent='Not saved to a file yet'; el.classList.toggle('dirty',false); return; } el.textContent=fileDirty?('Unsaved changes · '+fileName):('Saved '+fileTime+' · '+fileName); el.classList.toggle('dirty',fileDirty); }
+function setFileStatus(){ markSaved(); }
 let fileTime='';
 function projectFileBody(){ const pr=curProj(); return JSON.stringify({app:'myevents-planner',version:2,exported:new Date().toISOString(),project:{id:pr.id,updated:pr.updated,data:pr.data}},null,1); }
 async function saveToFile(){ histCommit(); save(); const body=projectFileBody(); const name=(baseName().replace(/-plan$/,'')||'plan')+'.json'; const d=new Date(); fileTime=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
   if(window.showSaveFilePicker){ try{ if(!fileHandle) fileHandle=await window.showSaveFilePicker({suggestedName:name,types:FILE_TYPES}); const w=await fileHandle.createWritable(); await w.write(body); await w.close(); fileName=fileHandle.name; fileDirty=false; setFileStatus(); toast('Saved '+fileName); return; }
     catch(e){ if(e&&e.name==='AbortError'){ toast('Save cancelled'); return; } fileHandle=null; } }
+  // falls through to a plain download when the browser has no save dialog
   try{ if(await deliver(name,new Blob([body],{type:'application/json'}))){ fileName=name; fileDirty=false; setFileStatus(); toast('Saved '+name+' to your downloads'); } }catch(e){ exportError(e,'file'); } }
 function loadProjectFile(text,handle){ const j=JSON.parse(text); const list=j.project?[j.project]:(Array.isArray(j.projects)?j.projects:null); if(!list||!list.length) throw new Error('not a plan file');
   let id=null; list.forEach(q=>{ if(!q||!q.data||!q.data.room||!Array.isArray(q.data.items)) return; const pid=q.id||uid(); const ex=store.projects.find(x=>x.id===pid); const data=normalize(q.data);
@@ -1181,8 +1184,10 @@ function loadProjectFile(text,handle){ const j=JSON.parse(text); const list=j.pr
 async function openFromFile(){ if(window.showOpenFilePicker){ try{ const [h]=await window.showOpenFilePicker({types:FILE_TYPES,multiple:false}); const f=await h.getFile(); loadProjectFile(await f.text(),h); return; }catch(e){ if(e&&e.name==='AbortError') return; if(!(e instanceof TypeError)&&e.name!=='SecurityError'&&e.name!=='NotAllowedError'){ toast('Could not open that file: '+(e.message||e)); return; } } }
   const f=$('#openFile'); f.value=''; f.click(); }
 $('#openFile').addEventListener('change',async e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; try{ loadProjectFile(await f.text(),null); fileName=f.name; setFileStatus(); }catch(err){ toast('Could not open that file: '+(err.message||err)); } });
-$('#saveBtn').addEventListener('click',saveToFile); $('#openBtn').addEventListener('click',openFromFile);
-window.addEventListener('beforeunload',e=>{ if(fileDirty&&fileName){ e.preventDefault(); e.returnValue=''; } });
+$('#saveBtn').addEventListener('click',saveNow);
+$('#pSaveFile').addEventListener('click',saveToFile);
+$('#pOpenFile').addEventListener('click',openFromFile);
+window.addEventListener('beforeunload',e=>{ if(syncConfigured()&&sync.pending.size&&navigator.onLine){ e.preventDefault(); e.returnValue=''; } });
 
 // ---------- export: PDF, PNG, backup ----------
 const baseName=()=>(([state.job,state.room.name].filter(Boolean).join(' ')||'room plan').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')||'room-plan')+'-plan';
