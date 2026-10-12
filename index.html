@@ -51,7 +51,7 @@ body{margin:0;background:var(--paper);color:var(--ink);font-family:Montserrat,sy
 .title span{color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tgroup{display:flex;align-items:center;gap:4px;flex:none}
 .tgroup+.tgroup{padding-left:8px;border-left:1px solid var(--line)}
-.saved{font-size:11px;color:var(--muted);white-space:nowrap;padding:0 4px;font-variant-numeric:tabular-nums}
+.saved{font-size:11px;color:var(--muted);white-space:nowrap;padding:2px 7px;border-radius:999px;font-variant-numeric:tabular-nums;transition:color .45s ease,background-color .45s ease}
 .main{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:0}
 aside{overflow:auto;background:var(--panel);border-right:1px solid var(--line);padding:0 14px 24px}
 .sec{border-bottom:1px solid var(--line)}
@@ -137,6 +137,10 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .seat select{width:auto;padding:2px 3px;font-size:11px;max-width:92px;color:var(--muted);border-color:transparent;background:transparent}
 .seat select:hover,.seat select:focus{border-color:var(--line-strong);background:var(--field)}
 .saved.dirty{color:var(--gold-deep);font-weight:600}
+/* a brief gold pulse after a change has been saved, so it is clear nothing needs pressing */
+.saved.flash{color:var(--gold-deep);font-weight:600;background:var(--gold-soft);animation:savedPop .32s ease}
+@keyframes savedPop{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.saved.flash{animation:none}}
 .sync{font-size:11px;color:var(--muted);white-space:nowrap;padding:0 4px;display:inline-flex;align-items:center;gap:5px}
 .sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--line-strong)}
 .sync.ok::before{background:#3B9C5A}
@@ -241,6 +245,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
   .top{gap:6px;padding:6px 10px;flex-wrap:wrap}
   .top .logo{border-right:0;padding-right:4px}
   .saved,.sync{display:none}
+  .saved.flash{display:inline-block}
   .hint{display:none}
   .tiles{grid-template-columns:repeat(4,1fr)}
 }
@@ -722,7 +727,12 @@ const byId=id=>state.items.find(i=>i.id===id);
 const lastJson=new Map(); const stateJson=s=>JSON.stringify(s,(k,v)=>k==='sel'?undefined:v);
 let storeOk=true;
 function saveStore(){ try{ const s=JSON.stringify(store); localStorage.setItem('myevents-projects',s); storeOk=localStorage.getItem('myevents-projects')===s; }catch(e){ storeOk=false; } if(!storeOk){ const el=$('#savedAt'); if(el) el.textContent='Browser autosave blocked — use Save'; } return storeOk; }
-function markSaved(){ if(!storeOk) return; const d=new Date(); const el=$('#savedAt'); el.classList.remove('dirty'); el.textContent='Saved '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); el.title=fileName?('Also written to '+fileName+' when you use Save a copy as a file'):'Kept in the cloud and on this device'; }
+let flashOnT=null, flashOffT=null;
+// Changes save as they are made. Pulse the stamp once the edit has settled, never mid-keystroke.
+function flashSaved(){ const el=$('#savedAt'); if(!el) return; clearTimeout(flashOnT);
+  flashOnT=setTimeout(()=>{ el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    clearTimeout(flashOffT); flashOffT=setTimeout(()=>el.classList.remove('flash'),1500); },550); }
+function markSaved(){ if(!storeOk) return; const d=new Date(); const el=$('#savedAt'); el.classList.remove('dirty'); el.textContent='Saved '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); el.title=fileName?('Also written to '+fileName+' when you use Save a copy as a file'):'Kept in the cloud and on this device'; flashSaved(); }
 function save(){ const pr=curProj(); pr.data=state; const js=stateJson(state); if(lastJson.get(pr.id)!==js){ lastJson.set(pr.id,js); pr.updated=Date.now(); scheduleCloud(pr.id); markSaved(); } saveStore(); }
 function projName(pr){ const d=pr.data||{}; const n=[d.job,(d.room||{}).name].filter(Boolean).join(' – ')||'Untitled'; return d.date? n+' · '+fmtDate(d.date) : n; }
 function renderProjects(){ const sel=$('#projSel'); if(document.activeElement===sel) return; sel.innerHTML=''; store.projects.forEach(q=>{ const o=document.createElement('option'); o.value=q.id; o.textContent=projName(q); if(q.id===store.current) o.selected=true; sel.appendChild(o); }); }
@@ -779,7 +789,14 @@ async function initCloud(){
   window.addEventListener('online',()=>{ setSync('syncing','Back online — syncing'); flush(); pull(false); });
   window.addEventListener('offline',()=>setSync('offline','Offline — changes will sync later'));
   sync.pull=setInterval(()=>{ if(navigator.onLine&&document.visibilityState==='visible') pull(false); },60000);
-  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&navigator.onLine){ pull(false); flush(); } });
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&navigator.onLine){ pull(false); flush(); }
+    else if(document.visibilityState==='hidden'){ clearTimeout(sync.timer); flush(); } });
+  // Closing the tab kills a normal request. A keepalive POST is allowed to outlive the page, so a
+  // change made a moment before leaving still reaches the cloud; anything it misses stays queued.
+  window.addEventListener('pagehide',()=>{ if(!partingBody.ok()) return;
+    try{ const body=partingBody.get();
+      fetch(SB_URL+'/rest/v1/plans?on_conflict=id',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',
+        apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'x-passcode':accessCode(),Prefer:'resolution=merge-duplicates,return=minimal'},body}); }catch(e){} });
 }
 
 // ---------- access code gate ----------
@@ -1299,7 +1316,11 @@ $('#openFile').addEventListener('change',async e=>{ const f=e.target.files&&e.ta
 $('#saveBtn').addEventListener('click',saveNow);
 $('#pSaveFile').addEventListener('click',saveToFile);
 $('#pOpenFile').addEventListener('click',openFromFile);
-window.addEventListener('beforeunload',e=>{ if(syncConfigured()&&sync.pending.size&&navigator.onLine){ e.preventDefault(); e.returnValue=''; } });
+// A queued change normally rides out on the keepalive push in initCloud, so leaving needs no warning.
+// Only a payload too large for that push is worth stopping for; offline changes simply wait their turn.
+const partingBody={ get(){ try{ return JSON.stringify([...sync.pending].map(rowFor)); }catch(e){ return null; } },
+  ok(){ if(!syncConfigured()||!sync.pending.size||!navigator.onLine) return false; const b=this.get(); return !!b&&b.length<=60000; } };
+window.addEventListener('beforeunload',e=>{ if(syncConfigured()&&sync.pending.size&&navigator.onLine&&!partingBody.ok()){ e.preventDefault(); e.returnValue=''; } });
 
 // ---------- export: PDF, PNG, backup ----------
 const baseName=()=>(([state.job,state.room.name].filter(Boolean).join(' ')||'room plan').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')||'room-plan')+'-plan';

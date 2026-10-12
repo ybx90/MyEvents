@@ -2,3 +2,6 @@
 Thumbs.db
 .DS_Store
 
+
+# local preview config, not part of the site
+.claude/
