@@ -96,6 +96,17 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .vbtn.on{background:var(--ink);color:var(--paper)}
 .vbtn span{margin-left:6px;font-weight:500;opacity:.8}
 .main.guests{grid-template-columns:1fr}
+.rview{overflow:auto;padding:16px 20px 40px;background:var(--canvas);min-height:0}
+.rlist{max-width:760px}
+.rrow{display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
+.rrow:first-child{border-top:0}
+.rtime{width:92px;flex:none;font-weight:600;text-align:center;font-variant-numeric:tabular-nums}
+.rtext{flex:1;min-width:0;resize:none;overflow:hidden;line-height:1.45}
+.racts{display:flex;gap:2px;flex:none;padding-top:3px}
+.btn.mini{padding:4px 7px;min-width:26px;font-size:12px;line-height:1}
+.btn.mini.del:hover{border-color:var(--danger);color:var(--danger)}
+.rempty{color:var(--muted);font-size:13px;padding:10px 0}
+@media (max-width:700px){ .rrow{flex-wrap:wrap} .rtext{flex-basis:100%;order:3} }
 .main.guests aside{display:none}
 .gview{overflow:auto;padding:16px 20px 32px;background:var(--canvas);min-height:0}
 .gtool{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px}
@@ -228,6 +239,14 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 #plan.ew{cursor:ew-resize}
 #plan.ns{cursor:ns-resize}
 .hint{position:absolute;left:12px;bottom:10px;font-size:11px;color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--canvas) 85%,transparent);padding:4px 8px;border-radius:4px;max-width:calc(100% - 24px)}
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:var(--canvas);text-align:center;padding:24px;z-index:5}
+.empty .mark{margin-bottom:18px}
+.empty .mark b{display:block;font-family:"Bodoni Moda",Didot,"Times New Roman",serif;font-weight:400;font-size:36px;line-height:1;color:var(--ink)}
+.empty .mark span{display:block;font-size:9px;letter-spacing:.42em;color:var(--gold);margin-top:3px;padding-left:.42em}
+.empty p{margin:0;color:var(--ink);font-size:15px}
+.empty p.sub{color:var(--muted);font-size:13px;margin-top:6px}
+.lnk{font:inherit;color:var(--gold-deep);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.lnk:hover{color:var(--ink)}
 .zoomctl{position:absolute;right:12px;top:12px;display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px;box-shadow:var(--shadow)}
 .zoomctl .btn{border:0;padding:4px 8px;min-width:28px;font-size:13px}
 .inline{position:absolute;z-index:5;font-family:"Bodoni Moda",Didot,serif;font-size:20px;text-align:center;padding:2px 6px;border:2px solid var(--gold);border-radius:6px;background:var(--panel);color:var(--ink);width:110px;box-shadow:var(--shadow);transform:translate(-50%,-50%)}
@@ -263,7 +282,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
     <div class="tgroup proj"><button class="btn" id="projMenuBtn" type="button" aria-haspopup="true" aria-expanded="false">Project ▾</button>
       <div class="menu" id="projMenu" hidden><button class="btn" id="pNew" type="button">New project</button><button class="btn" id="pDup" type="button">Duplicate this project</button><button class="btn danger" id="pDel" type="button">Delete this project</button><button class="btn" id="pTrash" type="button">Recently deleted…</button><hr><button class="btn" id="pSaveFile" type="button">Save a copy as a file…</button><button class="btn" id="pOpenFile" type="button">Open a plan file…</button><hr><button class="btn" id="pBackup" type="button">Backup all projects…</button><button class="btn" id="pRestore" type="button">Restore from a backup…</button><input type="file" id="restoreFile" accept=".json,application/json" hidden></div>
     </div>
-    <div class="views" role="tablist"><button class="vbtn on" type="button" data-view="plan">Plan</button><button class="vbtn" type="button" data-view="guests">Guests<span id="vGuestCnt"></span></button></div>
+    <div class="views" role="tablist"><button class="vbtn on" type="button" data-view="plan">Plan</button><button class="vbtn" type="button" data-view="guests">Guests<span id="vGuestCnt"></span></button><button class="vbtn" type="button" data-view="run">Running order</button></div>
     <div class="tgroup"><button class="btn icon" id="undo" type="button" title="Undo (Ctrl+Z)">↶</button><button class="btn icon" id="redo" type="button" title="Redo (Ctrl+Y)">↷</button></div>
     <div class="tgroup"><button class="btn" id="saveBtn" type="button" title="Save now (Ctrl+S) — everything is kept in the cloud and on this device">Save</button><span class="saved" id="savedAt"></span><span class="sync" id="syncDot" title=""></span><input type="file" id="openFile" accept=".json,application/json" hidden></div>
     <div class="tgroup"><select id="paper" aria-label="Paper size"><option value="a4">A4</option><option value="a3">A3</option></select><button class="btn" id="png" type="button" title="Export the plan as a PNG image">PNG</button><button class="btn gold" id="dl" type="button">Download PDF</button></div>
@@ -318,7 +337,19 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
     <div class="stage">
       <canvas id="plan"></canvas>
       <div class="zoomctl"><button class="btn" id="zOut" type="button" title="Zoom out">−</button><button class="btn" id="zFit" type="button" title="Fit room to screen">Fit</button><button class="btn" id="zIn" type="button" title="Zoom in">+</button></div>
+      <div class="empty" id="emptyState" hidden>
+        <div class="mark"><b>MY</b><span>EVENTS</span></div>
+        <p>No project open.</p>
+        <p class="sub">Pick one from the list at the top, or <button type="button" class="lnk" id="emptyNew">start a new project</button>.</p>
+      </div>
       <div class="hint">Click a selected item again to rename or renumber it · drag walls and gold corners to shape the room · scroll to zoom · drag empty floor to pan</div>
+    </div>
+    <div class="rview" id="rview" hidden>
+      <div class="gtool">
+        <div class="gtitle"><b id="rvTitle"></b><span id="rvSub"></span></div>
+        <button class="btn" id="rAdd" type="button">Add a line</button>
+      </div>
+      <div class="rlist" id="rlist"></div>
     </div>
     <div class="gview" id="gview" hidden>
       <div class="gtool">
@@ -440,13 +471,15 @@ function sample(){
   add('dance',9,5.3,{w:4.4,h:4.4}); add('top',9,9.9,{seats:10,w:6,r:180,num:1});
   [[2.3,3.3],[5.3,3.3],[2.3,6.5],[5.3,6.5],[2.3,9.6],[5.3,9.6],[12.7,3.3],[15.7,3.3],[12.7,6.5],[15.7,6.5],[12.7,9.6],[15.7,9.6]].forEach((p,i)=>add('round',p[0],p[1],{seats:10,num:i+2}));
   add('door',3.8,11.55); add('plant',0.6,0.6); add('plant',17.4,0.6);
-  return {job:'',date:'',room:blankRoom('Main Hall'),units:'m',paper:'a4',items,sel:null};
+  return {job:'',date:'',room:blankRoom('Main Hall'),units:'m',paper:'a4',items,run:[],sel:null};
 }
 function blank(){ const s=sample(); s.items=[]; return s; }
 function normalize(s){
   s.job=s.job||''; s.date=s.date||''; s.sel=null; s.units=s.units||'m'; s.paper=s.paper||'a4';
   const r=s.room||(s.room=blankRoom()); if(!r.cuts){ r.cuts={tl:null,tr:null,bl:null,br:null}; if(r.shape==='L'&&r.cut&&r.cut.w>0&&r.cut.d>0) r.cuts[r.cut.corner||'tr']={w:r.cut.w,d:r.cut.d}; } delete r.shape; delete r.cut;
   if(!Array.isArray(s.items)) s.items=[];
+  if(!Array.isArray(s.run)) s.run=[];
+  s.run=s.run.filter(r=>r&&typeof r==='object').map(r=>({id:r.id||uid(),time:String(r.time||''),text:String(r.text||'')}));
   s.split=!!s.split; if(!Array.isArray(s.guests)) s.guests=[]; s.guests=s.guests.filter(g=>g&&typeof g.name==='string').map(g=>({id:g.id||uid(),name:g.name,table:g.table||null,seat:Number.isInteger(g.seat)?g.seat:null,want:g.want||null}));
   s.items=s.items.filter(it=>it&&DEFS[it.type]);
   const used=new Set(); s.items.forEach(it=>{ if(isTable(it)&&Number.isInteger(it.num)) used.add(it.num); });
@@ -737,7 +770,9 @@ async function fontsReady(){ try{ await Promise.race([Promise.all([document.font
 function loadStore(){ try{ const s=JSON.parse(localStorage.getItem('myevents-projects')); if(s&&Array.isArray(s.projects)&&s.projects.length) return s; }catch(e){} return null; }
 function loadLegacy(){ try{ const s=JSON.parse(localStorage.getItem('myevents-plan')); if(s&&s.room&&Array.isArray(s.items)) return s; }catch(e){} return null; }
 let store=loadStore();
-if(!store){ const legacy=loadLegacy(); store={projects:[{id:uid(),updated:Date.now(),data:normalize(legacy||sample())}],current:null}; store.current=store.projects[0].id; }
+if(!store){ const legacy=loadLegacy();
+  store=legacy? {projects:[{id:uid(),updated:Date.now(),data:normalize(legacy)}],current:null} : {projects:[],current:null};
+  store.current=store.projects.length? store.projects[0].id : null; }
 if(!Array.isArray(store.trash)) store.trash=[];
 const TRASH_DAYS=21;
 function curProj(){ return store.projects.find(q=>q.id===store.current)||store.projects[0]; }
@@ -746,7 +781,7 @@ function trashPurge(){ const cut=Date.now()-TRASH_DAYS*86400000; const keep=[]; 
   if(gone){ store.trash=keep; saveStore(); } }
 function trashPut(pr,when){ if(!pr||!pr.data) return; store.trash=store.trash.filter(t=>t.id!==pr.id);
   store.trash.push({id:pr.id,data:pr.data,updated:pr.updated||Date.now(),deletedAt:when||Date.now()}); }
-state=normalize(curProj().data);
+state=normalize(curProj()? curProj().data : blank());
 const byId=id=>state.items.find(i=>i.id===id);
 const lastJson=new Map(); const stateJson=s=>JSON.stringify(s,(k,v)=>k==='sel'?undefined:v);
 let storeOk=true;
@@ -757,10 +792,15 @@ function flashSaved(){ const el=$('#savedAt'); if(!el) return; clearTimeout(flas
   flashOnT=setTimeout(()=>{ el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
     clearTimeout(flashOffT); flashOffT=setTimeout(()=>el.classList.remove('flash'),1500); },550); }
 function markSaved(){ if(!storeOk) return; const d=new Date(); const el=$('#savedAt'); el.classList.remove('dirty'); el.textContent='Saved '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); el.title=fileName?('Also written to '+fileName+' when you use Save a copy as a file'):'Kept in the cloud and on this device'; flashSaved(); }
-function save(){ const pr=curProj(); pr.data=state; const js=stateJson(state); if(lastJson.get(pr.id)!==js){ lastJson.set(pr.id,js); pr.updated=Date.now(); scheduleCloud(pr.id); markSaved(); } saveStore(); }
+function save(){ const pr=curProj(); if(!pr) return; pr.data=state; const js=stateJson(state); if(lastJson.get(pr.id)!==js){ lastJson.set(pr.id,js); pr.updated=Date.now(); scheduleCloud(pr.id); markSaved(); } saveStore(); }
 function projName(pr){ const d=pr.data||{}; const n=[d.job,(d.room||{}).name].filter(Boolean).join(' – ')||'Untitled'; return d.date? n+' · '+fmtDate(d.date) : n; }
-function renderProjects(){ const sel=$('#projSel'); if(document.activeElement===sel) return; sel.innerHTML=''; store.projects.forEach(q=>{ const o=document.createElement('option'); o.value=q.id; o.textContent=projName(q); if(q.id===store.current) o.selected=true; sel.appendChild(o); }); }
-function openProject(id){ save(); store.current=id; state=normalize(curProj().data); saveStore(); closeInline(); fileHandle=null; fileName=null; fileDirty=false; fillRoomInputs(); renderSel(); zoomFit(); lastTableSig=''; refresh(); renderProjects(); histReset(); setFileStatus(); if(curView==='guests') renderGuestView(); }
+function updateEmpty(){ const none=!curProj(); const el=$('#emptyState'); if(el) el.hidden=!none;
+  ['dl','png','saveBtn'].forEach(id=>{ const x=$('#'+id); if(x) x.disabled=none; });
+  document.querySelectorAll('.vbtn').forEach(x=>{ if(x.dataset.view!=='plan') x.disabled=none; });
+  if(none&&curView!=='plan') setView('plan'); }
+function renderProjects(){ const sel=$('#projSel'); updateEmpty(); if(document.activeElement===sel) return; sel.innerHTML='';
+  if(!store.projects.length){ const o=document.createElement('option'); o.value=''; o.textContent='No projects yet'; sel.appendChild(o); return; } store.projects.forEach(q=>{ const o=document.createElement('option'); o.value=q.id; o.textContent=projName(q); if(q.id===store.current) o.selected=true; sel.appendChild(o); }); }
+function openProject(id){ save(); store.current=id; state=normalize(curProj().data); saveStore(); closeInline(); fileHandle=null; fileName=null; fileDirty=false; fillRoomInputs(); renderSel(); zoomFit(); lastTableSig=''; refresh(); renderProjects(); histReset(); setFileStatus(); if(curView==='guests') renderGuestView(); else if(curView==='run') renderRun(); }
 function newProject(data){ const pr={id:uid(),updated:Date.now(),data:normalize(data)}; store.projects.push(pr); openProject(pr.id); }
 
 // ---------- cloud sync (Supabase, offline-first: local store is the truth, changes queue until online) ----------
@@ -786,7 +826,7 @@ async function flush(){ if(!syncConfigured()||!sync.pending.size) return; if(!na
     ids.forEach(id=>sync.pending.delete(id)); persistPending(); setSync('ok','Synced','All changes are saved to the cloud'); try{ if(sync.chan) sync.chan.send({type:'broadcast',event:'changed',payload:{t:Date.now()}}); }catch(e){} }
   catch(e){ setSync('error','Sync problem — retrying',String(e&&e.message||e)); clearTimeout(sync.timer); sync.timer=setTimeout(flush,15000); }
   finally{ sync.busy=false; } }
-function switchAfterRemoteDelete(){ if(!store.projects.length) store.projects.push({id:uid(),updated:Date.now(),data:normalize(blank())}); store.current=store.projects[store.projects.length-1].id; state=normalize(curProj().data); saveStore(); closeInline(); fillRoomInputs(); renderSel(); zoomFit(); lastTableSig=''; refresh(); renderProjects(); histReset(); setFileStatus(); }
+function switchAfterRemoteDelete(){ store.current=store.projects.length? store.projects[store.projects.length-1].id : null; state=normalize(curProj()? curProj().data : blank()); saveStore(); closeInline(); fillRoomInputs(); renderSel(); zoomFit(); lastTableSig=''; refresh(); renderProjects(); histReset(); setFileStatus(); }
 async function pull(full){ if(!syncConfigured()||!navigator.onLine) return; try{ if(!await loadSb()) return; const since=full?0:Math.max(0,sync.lastPull-5000);
     const {data,error}=await sbClient().from('plans').select('id,kind,name,data,updated,deleted').gt('updated',since); if(error) throw error;
     const remote=new Map(); (data||[]).forEach(r=>remote.set(r.id,r)); let changed=0, changedCurrent=null, changedHalls=false;
@@ -802,7 +842,9 @@ async function pull(full){ if(!syncConfigured()||!navigator.onLine) return; try{
     sync.lastPull=Date.now(); try{ localStorage.setItem('myevents-lastpull',String(sync.lastPull)); }catch(e){}
     if(changed||changedHalls){ saveStore(); saveHalls(); renderProjects(); renderHalls(); }
     if(changedCurrent==='deleted'){ switchAfterRemoteDelete(); toast('This project was deleted on another device'); }
-    else if(changedCurrent){ state=normalize(curProj().data); closeInline(); fillRoomInputs(); renderSel(); lastTableSig=''; refresh(); histReset(); if(curView==='guests') renderGuestView(); toast('Updated from another device'); }
+    else if(changedCurrent){ state=normalize(curProj().data); closeInline(); fillRoomInputs(); renderSel(); lastTableSig=''; refresh(); histReset(); if(curView==='guests') renderGuestView(); else if(curView==='run') renderRun(); toast('Updated from another device'); }
+    if(!curProj()&&store.projects.length){ const newest=store.projects.slice().sort((p,q)=>(q.updated||0)-(p.updated||0))[0]; openProject(newest.id); }
+    else updateEmpty();
     if(!sync.pending.size) setSync('ok','Synced','All changes are saved to the cloud'); else flush(); }
   catch(e){ setSync('error','Sync problem',String(e&&e.message||e)); } }
 async function initCloud(){
@@ -865,7 +907,7 @@ function refreshStats(){
   return {tables,seats,groups,rowSeats};
 }
 let lastTableSig='';
-function refresh(){ refreshStats(); draw(); save(); renderProjects(); histRecord(); const sig=state.items.filter(isTable).map(t=>t.id+':'+t.num+':'+t.label+':'+t.seats).join('|'); if(sig!==lastTableSig){ lastTableSig=sig; if(curView==='guests') renderGuestView(); } updateGuestCounts(); }
+function refresh(){ refreshStats(); draw(); save(); renderProjects(); histRecord(); const sig=state.items.filter(isTable).map(t=>t.id+':'+t.num+':'+t.label+':'+t.seats).join('|'); if(sig!==lastTableSig){ lastTableSig=sig; if(curView==='guests') renderGuestView(); else if(curView==='run') renderRun(); } updateGuestCounts(); }
 
 // ---------- room inputs ----------
 function fillRoomInputs(){ const r=state.room; $('#rName').value=r.name; $('#jobName').value=state.job||''; $('#evDate').textContent=state.date?fmtDate(state.date,true):'Pick a date'; $('#units').value=state.units; $('#paper').value=state.paper||'a4';
@@ -1075,7 +1117,7 @@ function saveNow(){ histCommit(); const pr=curProj(); pr.data=state; lastJson.se
 const arm=(id,label,fn)=>{ let t=null; $('#'+id).addEventListener('click',()=>{ const b=$('#'+id); if(t){ clearTimeout(t); t=null; b.textContent=label; fn(); return; } b.textContent='Click again to confirm'; t=setTimeout(()=>{ t=null; b.textContent=label; },3000); }); };
 arm('clear','Clear room',()=>{ state.items=[]; state.sel=null; closeInline(); renderSel(); refresh(); toast('Room cleared — Undo brings it back'); });
 arm('pDel','Delete',()=>{ const id=store.current; trashPut(store.projects.find(q=>q.id===id)); store.projects=store.projects.filter(q=>q.id!==id); queuePush(id);
-  if(!store.projects.length) store.projects.push({id:uid(),updated:Date.now(),data:normalize(blank())}); store.current=store.projects[store.projects.length-1].id; state=normalize(curProj().data); saveStore(); closeInline(); fillRoomInputs(); renderSel(); zoomFit(); refresh(); renderProjects(); histReset(); toast('Project deleted — Project ▾ \u2192 Recently deleted puts it back for '+TRASH_DAYS+' days'); });
+  store.current=store.projects.length? store.projects[store.projects.length-1].id : null; state=normalize(curProj()? curProj().data : blank()); saveStore(); closeInline(); fillRoomInputs(); renderSel(); zoomFit(); refresh(); renderProjects(); histReset(); toast('Project deleted — Project ▾ \u2192 Recently deleted puts it back for '+TRASH_DAYS+' days'); });
 $('#example').addEventListener('click',()=>{ const s=sample(); s.units=state.units; s.paper=state.paper; newProject(s); toast('Example layout opened as a new project'); });
 function renderTrash(){ trashPurge(); const box=$('#trashList'); box.innerHTML='';
   const list=store.trash.slice().sort((a,b)=>b.deletedAt-a.deletedAt);
@@ -1096,7 +1138,9 @@ pmb.addEventListener('click',e=>{ e.stopPropagation(); toggleMenu(pm.hidden); })
 document.addEventListener('click',e=>{ if(!pm.hidden&&!pm.contains(e.target)) toggleMenu(false); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!pm.hidden) toggleMenu(false); });
 ['pNew','pDup','pBackup','pRestore','pSaveFile','pOpenFile','pTrash'].forEach(id=>$('#'+id).addEventListener('click',()=>toggleMenu(false)));
-$('#pNew').addEventListener('click',()=>{ const s=blank(); s.units=state.units; s.paper=state.paper; newProject(s); $('#jobName').focus(); });
+function startNewProject(){ const s=blank(); s.units=state.units; s.paper=state.paper; newProject(s); $('#jobName').focus(); }
+$('#pNew').addEventListener('click',startNewProject);
+$('#emptyNew').addEventListener('click',startNewProject);
 $('#pDup').addEventListener('click',()=>{ save(); const d=JSON.parse(JSON.stringify(state)); d.job=(d.job||d.room.name||'Untitled')+' (copy)'; newProject(d); toast('Project duplicated'); });
 function numberGroup(list){ const rows=[]; list.slice().sort((a,b)=>a.y-b.y).forEach(t=>{ const r=rows.find(r=>Math.abs(r.y-t.y)<1.2); if(r) r.items.push(t); else rows.push({y:t.y,items:[t]}); });
   let n=1; rows.forEach(r=>r.items.sort((a,b)=>a.x-b.x).forEach(t=>{ t.num=n++; })); }
@@ -1151,8 +1195,41 @@ $('#hallSel').addEventListener('change',e=>{ const h=halls.find(x=>x.id===e.targ
 arm('hallDel','×',()=>{ const id=$('#hallSel').value; const h=halls.find(x=>x.id===id); if(!h) return; halls=halls.filter(x=>x.id!==id); saveHalls(); queuePush(id); renderHalls(); toast('Deleted hall “'+h.name+'”'); });
 
 // ---------- guests (own tab: table by table, seat by seat) ----------
+// ---------- running order ----------
+function runRows(){ if(!Array.isArray(state.run)) state.run=[]; return state.run; }
+function runSub(){ const n=runRows().filter(r=>(r.time||'').trim()||(r.text||'').trim()).length;
+  $('#rvSub').textContent = n? n+' line'+(n===1?'':'s') : 'Nothing in the running order yet'; }
+function runChanged(){ save(); histRecord(); runSub(); }
+function renderRun(){ const list=$('#rlist'); if(!list) return;
+  $('#rvTitle').textContent=state.job||state.room.name||'Running order';
+  const rows=runRows(); list.innerHTML='';
+  if(!rows.length){ const p=document.createElement('p'); p.className='rempty';
+    p.textContent='Add a line to start \u2014 a time on the left, what happens on the right.'; list.appendChild(p); }
+  rows.forEach((r,i)=>{ const el=document.createElement('div'); el.className='rrow';
+    el.innerHTML='<input class="rtime" placeholder="7:30" maxlength="14" aria-label="Time">'+
+      '<textarea class="rtext" rows="1" maxlength="400" placeholder="What happens at this time" aria-label="What happens"></textarea>'+
+      '<div class="racts"><button class="btn mini" data-up type="button" title="Move up">\u2191</button>'+
+      '<button class="btn mini" data-down type="button" title="Move down">\u2193</button>'+
+      '<button class="btn mini del" data-del type="button" title="Delete this line">\u00d7</button></div>';
+    const t=el.querySelector('.rtime'), x=el.querySelector('.rtext');
+    t.value=r.time||''; x.value=r.text||'';
+    const grow=()=>{ x.style.height='auto'; x.style.height=Math.max(34,x.scrollHeight)+'px'; };
+    t.addEventListener('input',()=>{ r.time=t.value; runChanged(); });
+    x.addEventListener('input',()=>{ r.text=x.value; grow(); runChanged(); });
+    el.querySelector('[data-up]').addEventListener('click',()=>{ if(i>0){ rows.splice(i-1,0,rows.splice(i,1)[0]); renderRun(); runChanged(); } });
+    el.querySelector('[data-down]').addEventListener('click',()=>{ if(i<rows.length-1){ rows.splice(i+1,0,rows.splice(i,1)[0]); renderRun(); runChanged(); } });
+    el.querySelector('[data-del]').addEventListener('click',()=>{ rows.splice(i,1); renderRun(); runChanged(); });
+    list.appendChild(el); grow(); });
+  runSub(); }
+function addRunRow(){ runRows().push({id:uid(),time:'',text:''}); renderRun(); runChanged();
+  const ins=$('#rlist').querySelectorAll('.rtime'); if(ins.length) ins[ins.length-1].focus(); }
+$('#rAdd').addEventListener('click',addRunRow);
+
 let curView='plan';
-function setView(v){ curView=v; document.querySelectorAll('.vbtn').forEach(x=>x.classList.toggle('on',x.dataset.view===v)); $('#gview').hidden=v!=='guests'; $('.stage').hidden=v!=='plan'; $('.main').classList.toggle('guests',v==='guests'); closeInline(); if(v==='guests') renderGuestView(); else draw(); }
+function setView(v){ curView=v; document.querySelectorAll('.vbtn').forEach(x=>x.classList.toggle('on',x.dataset.view===v));
+  $('#gview').hidden=v!=='guests'; $('#rview').hidden=v!=='run'; $('.stage').hidden=v!=='plan';
+  $('.main').classList.toggle('guests',v!=='plan'); closeInline();
+  if(v==='guests') renderGuestView(); else if(v==='run') renderRun(); else draw(); }
 document.querySelectorAll('.vbtn').forEach(x=>x.addEventListener('click',()=>setView(x.dataset.view)));
 function tablesSorted(){ return state.items.filter(isTable).slice().sort((p,q)=>(p.num||0)-(q.num||0)||tableName(p).localeCompare(tableName(q))); }
 function tableTitle(t){ const s=sideName(t); const n=Number.isInteger(t.num)?('Table '+t.num+(s?' ('+s+')':'')):''; const l=(t.label||'').trim(); return n&&l? n+' · '+l : (n||l||'Table'); }
@@ -1354,21 +1431,49 @@ async function deliver(filename,blob){
 function exportError(e,what){ if(e&&e.code==='declined') toast('Download cancelled'); else if(e&&e.code==='rate_limited') toast('One download at a time — try again in a moment'); else toast('Could not create the '+what+': '+((e&&e.message)||e)); }
 async function busy(btn,label,fn){ btn.disabled=true; const orig=btn.textContent; btn.textContent=label; try{ await fn(); } finally{ btn.disabled=false; btn.textContent=orig; } }
 async function logoForPdf(){ const im=await logoImage(); return {src:LOGO_DATA,ratio:(im.naturalWidth||522)/(im.naturalHeight||699),type:'PNG'}; }
+// The masthead every document shares: logo, job, hall and date over a gold rule.
+async function pdfHead(pdf,PW,M,A3,meta){
+  const logo=await logoForPdf(); const logoH=A3?36:27, logoW=logoH*logo.ratio;
+  pdf.addImage(logo.src,logo.type,PW-M-logoW,M-3,logoW,logoH);
+  pdf.setTextColor(15,17,20); pdf.setFont('helvetica','bold'); pdf.setFontSize(A3?22:17);
+  const titleW=PW-2*M-logoW-8;
+  pdf.text(pdf.splitTextToSize(state.job||state.room.name||'Room plan',titleW)[0],M,M+7);
+  pdf.setFont('helvetica','normal'); pdf.setFontSize(A3?13:11); pdf.setTextColor(40,42,48);
+  const sub=[state.job?state.room.name:'',fmtDate(state.date,true)].filter(Boolean).join('   ·   '); let ly=M+13.5;
+  if(sub){ pdf.text(pdf.splitTextToSize(sub,titleW)[0],M,ly); ly+=A3?6.5:5.5; }
+  if(meta){ pdf.setFontSize(A3?11:9.5); pdf.setTextColor(110,105,95); pdf.text(meta,M,ly,{maxWidth:titleW}); }
+  const ruleY=M+logoH+1; pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.5); pdf.line(M,ruleY,PW-M,ruleY);
+  return ruleY; }
+async function makeRunPDF(){
+  const {jsPDF}=window.jspdf; const A3=(state.paper||'a4')==='a3';
+  const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:state.paper||'a4',compress:true});
+  const PW=pdf.internal.pageSize.getWidth(), PH=pdf.internal.pageSize.getHeight(); const M=A3?16:12;
+  const rows=runRows().filter(r=>(r.time||'').trim()||(r.text||'').trim());
+  const ruleY=await pdfHead(pdf,PW,M,A3,'Running order'+(rows.length?'   ·   '+rows.length+' line'+(rows.length===1?'':'s'):''));
+  const footTop=PH-M-6, timeW=A3?30:25, textX=M+timeW+7, textW=PW-M-textX;
+  const fsT=A3?13:11.5, fsB=A3?12:10.5, lh=A3?6:5.2;
+  const foot=()=>{ pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(110,105,95);
+    pdf.text(`MY Events  ·  ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`,PW-M,footTop+2,{align:'right'}); };
+  foot(); let y=ruleY+11;
+  if(!rows.length){ pdf.setFontSize(11); pdf.setTextColor(110,105,95); pdf.text('Nothing in the running order yet.',M,y); return pdf; }
+  rows.forEach(r=>{
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(fsB);
+    const lines=pdf.splitTextToSize(String(r.text||''),textW);
+    const need=Math.max(1,lines.length)*lh+4.5;
+    if(y+need>footTop){ pdf.addPage(); foot(); y=M+8; }
+    pdf.setDrawColor(228,225,217); pdf.setLineWidth(0.2); pdf.line(M,y-5,PW-M,y-5);
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(fsT); pdf.setTextColor(164,132,46);
+    pdf.text(String(r.time||''),M,y);
+    pdf.setFont('helvetica','normal'); pdf.setFontSize(fsB); pdf.setTextColor(25,27,32);
+    lines.forEach((ln,k)=>pdf.text(ln,textX,y+k*lh));
+    y+=need; });
+  return pdf; }
 async function makePDF(){
   const {jsPDF}=window.jspdf; const {w,d}=state.room; const fmt=state.paper||'a4'; const A3=fmt==='a3';
   const pdf=new jsPDF({orientation: w>=d*0.9?'landscape':'portrait', unit:'mm', format:fmt, compress:true});
   const PW=pdf.internal.pageSize.getWidth(), PH=pdf.internal.pageSize.getHeight(); const M=A3?16:12;
-  const logo=await logoForPdf(); const logoH=A3?36:27, logoW=logoH*logo.ratio;
-  pdf.addImage(logo.src,logo.type,PW-M-logoW,M-3,logoW,logoH);
   const {tables,seats,groups,rowSeats}=refreshStats();
-  pdf.setTextColor(15,17,20); pdf.setFont('helvetica','bold'); pdf.setFontSize(A3?22:17);
-  const titleW=PW-2*M-logoW-8; pdf.text(pdf.splitTextToSize(state.job||state.room.name||'Room plan',titleW)[0],M,M+7);
-  pdf.setFont('helvetica','normal'); pdf.setFontSize(A3?13:11); pdf.setTextColor(40,42,48);
-  const sub=[state.job?state.room.name:'',fmtDate(state.date,true)].filter(Boolean).join('   ·   '); let ly=M+13.5;
-  if(sub){ pdf.text(pdf.splitTextToSize(sub,titleW)[0],M,ly); ly+=A3?6.5:5.5; }
-  pdf.setFontSize(A3?11:9.5); pdf.setTextColor(110,105,95);
-  pdf.text(`${fmtU(w)} × ${fmtU(d)}   ·   ${tables.length} table${tables.length===1?'':'s'}   ·   ${seats} seats${rowSeats?' + '+rowSeats+' in rows':''}   ·   drawn to scale`,M,ly,{maxWidth:titleW});
-  const ruleY=M+logoH+1; pdf.setDrawColor(201,165,74); pdf.setLineWidth(0.5); pdf.line(M,ruleY,PW-M,ruleY);
+  const ruleY=await pdfHead(pdf,PW,M,A3,`${fmtU(w)} × ${fmtU(d)}   ·   ${tables.length} table${tables.length===1?'':'s'}   ·   ${seats} seats${rowSeats?' + '+rowSeats+' in rows':''}   ·   drawn to scale`);
   const footTop=PH-M-6; const top=ruleY+4, bottom=footTop-4; const areaW=PW-2*M, areaH=bottom-top;
   const ppm=A3?6:8; const cw=Math.round(areaW*ppm), ch=Math.round(areaH*ppm);
   const c=document.createElement('canvas'); c.width=cw; c.height=ch; const v=drawScene(c.getContext('2d'),cw,ch,PRINT_PAL,{print:true});
@@ -1453,7 +1558,10 @@ async function makePNG(){
   ctx.fillText('MY Events  ·  '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}),W-90,c.height-26); ctx.textAlign='left';
   return new Promise(res=>c.toBlob(b=>res(b),'image/png'));
 }
-$('#dl').addEventListener('click',()=>busy($('#dl'),'Preparing…',async()=>{ try{ closeInline(); const pdf=await makePDF(); if(await deliver(baseName()+'.pdf',pdf.output('blob'))) toast('PDF saved'); }catch(e){ exportError(e,'PDF'); } }));
+$('#dl').addEventListener('click',()=>busy($('#dl'),'Preparing…',async()=>{ try{ closeInline();
+  if(curView==='run'){ const rp=await makeRunPDF();
+    if(await deliver(baseName().replace(/-plan$/,'')+'-running-order.pdf',rp.output('blob'))) toast('Running order PDF saved'); return; }
+  const pdf=await makePDF(); if(await deliver(baseName()+'.pdf',pdf.output('blob'))) toast('PDF saved'); }catch(e){ exportError(e,'PDF'); } }));
 $('#png').addEventListener('click',()=>busy($('#png'),'…',async()=>{ try{ closeInline(); const blob=await makePNG(); if(await deliver(baseName()+'.png',blob)) toast('PNG saved'); }catch(e){ exportError(e,'PNG'); } }));
 $('#pBackup').addEventListener('click',()=>busy($('#pBackup'),'…',async()=>{ save(); try{ const body=JSON.stringify({app:'myevents-planner',version:2,exported:new Date().toISOString(),projects:store.projects,halls},null,1);
   const d=new Date(); const stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
