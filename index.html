@@ -398,7 +398,7 @@ const DEFS={
   cake:{name:'Cake table',cat:'decor',w:0.9,h:0.9,label:'CAKE'},
   gifts:{name:'Gift table',cat:'decor',w:1.8,h:0.76,label:'GIFTS'},
   sweets:{name:'Sweet table',cat:'decor',w:1.8,h:0.76,label:'SWEETS'},
-  chef:{name:'Chef / station staff',cat:'decor',w:0.6,h:0.6,label:'CHEF'},
+  chef:{name:'Chef / station staff',cat:'decor',w:0.7,h:0.7,label:'CHEF'},
   plant:{name:'Plant',cat:'decor',w:0.6,h:0.6,label:''},
   coatrail:{name:'Coat rail',cat:'decor',w:1.8,h:0.5,label:'COATS'},
   desk:{name:'Reception desk',cat:'decor',w:1.8,h:0.7,label:'RECEPTION'},
@@ -659,11 +659,28 @@ function drawItem(ctx,it,S,ox,oy,pal,opt){
     case 'steps': { plainBox(); const n=Math.max(2,Math.round(it.h/0.3)); for(let i=1;i<n;i++){ const y=-h/2+i*h/n; ctx.beginPath(); ctx.moveTo(-w/2,y); ctx.lineTo(w/2,y); ctx.stroke(); } sideLabel(); break; }
     case 'cake': { ctx.fillStyle=pal.table; ctx.beginPath(); ctx.arc(0,0,Math.min(w,h)/2,0,Math.PI*2); ctx.fill(); ctx.stroke();
       ctx.fillStyle=pal.gold; ctx.beginPath(); ctx.arc(0,0,Math.min(w,h)*0.2,0,Math.PI*2); ctx.fill(); ctx.stroke(); label(it.label,fitFs(it.label,h*0.2),{spaced:true,dy:Math.min(w,h)*0.36,color:pal.muted}); break; }
-    case 'chef': { const R=Math.min(w,h)/2; ctx.fillStyle=pal.gold; ctx.beginPath(); ctx.arc(0,0,R,0,Math.PI*2); ctx.fill();
-      ctx.save(); if(flip) ctx.rotate(Math.PI); const u=R/50;              // toque drawn in a 100-unit box
-      ctx.fillStyle=pal.room; ctx.beginPath();
-      ctx.arc(-13*u,-9*u,13*u,0,Math.PI*2); ctx.arc(0,-15*u,15*u,0,Math.PI*2); ctx.arc(13*u,-9*u,13*u,0,Math.PI*2);
-      ctx.rect(-14*u,-10*u,28*u,14*u); ctx.rect(-12*u,2*u,24*u,16*u); ctx.fill();
+    case 'chef': { const u=Math.min(w,h)/100, B=(...p)=>ctx.bezierCurveTo(...p.map((v,i)=>v*u));
+      // A chef seen head-on: toque, ears, closed eyes, moustache. The face is what makes it read as a
+      // chef at a glance - a hat on its own looks like a mushroom at this size.
+      ctx.save(); ctx.translate(0,10*u);
+      const ear=(sx)=>{ ctx.beginPath(); ctx.ellipse(sx*29*u,6*u,6*u,7*u,0,0,Math.PI*2); ctx.fillStyle=pal.furn; ctx.fill(); ctx.stroke(); };
+      ear(-1); ear(1);
+      ctx.beginPath(); ctx.moveTo(-23*u,-9*u); ctx.lineTo(23*u,-9*u); ctx.lineTo(23*u,15*u);
+      ctx.ellipse(0,15*u,23*u,26*u,0,0,Math.PI); ctx.closePath();
+      ctx.fillStyle=pal.furn; ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-24*u,-18*u);
+      B(-40,-18,-40,-32,-32,-38); B(-36,-50,-24,-58,-12,-53); B(-7,-62,7,-62,12,-53);
+      B(24,-58,36,-50,32,-38); B(40,-32,40,-18,24,-18); ctx.closePath();
+      ctx.fillStyle=pal.gold; ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-27*u,-20*u); ctx.lineTo(27*u,-20*u); ctx.lineTo(27*u,-13*u);
+      ctx.quadraticCurveTo(27*u,-10*u,24*u,-10*u); ctx.lineTo(-24*u,-10*u);
+      ctx.quadraticCurveTo(-27*u,-10*u,-27*u,-13*u); ctx.closePath(); ctx.fill(); ctx.stroke();
+      if(Math.min(w,h)>26){ ctx.save(); ctx.lineWidth=lw*0.9; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(-15*u,4*u); ctx.quadraticCurveTo(-9.5*u,11*u,-4*u,4*u);
+        ctx.moveTo(4*u,4*u); ctx.quadraticCurveTo(9.5*u,11*u,15*u,4*u); ctx.stroke(); ctx.restore();
+        ctx.beginPath(); ctx.moveTo(0,20*u);
+        B(-5,14,-17,15,-17,22); B(-17,28,-8,29,0,23); B(8,29,17,28,17,22); B(17,15,5,14,0,20);
+        ctx.closePath(); ctx.fillStyle=pal.ink; ctx.fill(); }
       ctx.restore(); sideLabel(); break; }
     case 'plant': { ctx.fillStyle=pal.furn; ctx.beginPath(); ctx.arc(0,0,Math.min(w,h)/2,0,Math.PI*2); ctx.fill(); ctx.stroke();
       const r=Math.min(w,h)/2; ctx.strokeStyle=pal.gold; ctx.lineWidth=lw*1.2; for(let i=0;i<6;i++){ const a=i*Math.PI/3; ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(Math.cos(a+0.5)*r*0.55,Math.sin(a+0.5)*r*0.55,Math.cos(a)*r*0.85,Math.sin(a)*r*0.85); ctx.stroke(); } ctx.strokeStyle=pal.ink; sideLabel(); break; }
