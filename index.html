@@ -398,6 +398,7 @@ const DEFS={
   cake:{name:'Cake table',cat:'decor',w:0.9,h:0.9,label:'CAKE'},
   gifts:{name:'Gift table',cat:'decor',w:1.8,h:0.76,label:'GIFTS'},
   sweets:{name:'Sweet table',cat:'decor',w:1.8,h:0.76,label:'SWEETS'},
+  chef:{name:'Chef / station staff',cat:'decor',w:0.6,h:0.6,label:'CHEF'},
   plant:{name:'Plant',cat:'decor',w:0.6,h:0.6,label:''},
   coatrail:{name:'Coat rail',cat:'decor',w:1.8,h:0.5,label:'COATS'},
   desk:{name:'Reception desk',cat:'decor',w:1.8,h:0.7,label:'RECEPTION'},
@@ -658,6 +659,12 @@ function drawItem(ctx,it,S,ox,oy,pal,opt){
     case 'steps': { plainBox(); const n=Math.max(2,Math.round(it.h/0.3)); for(let i=1;i<n;i++){ const y=-h/2+i*h/n; ctx.beginPath(); ctx.moveTo(-w/2,y); ctx.lineTo(w/2,y); ctx.stroke(); } sideLabel(); break; }
     case 'cake': { ctx.fillStyle=pal.table; ctx.beginPath(); ctx.arc(0,0,Math.min(w,h)/2,0,Math.PI*2); ctx.fill(); ctx.stroke();
       ctx.fillStyle=pal.gold; ctx.beginPath(); ctx.arc(0,0,Math.min(w,h)*0.2,0,Math.PI*2); ctx.fill(); ctx.stroke(); label(it.label,fitFs(it.label,h*0.2),{spaced:true,dy:Math.min(w,h)*0.36,color:pal.muted}); break; }
+    case 'chef': { const R=Math.min(w,h)/2; ctx.fillStyle=pal.gold; ctx.beginPath(); ctx.arc(0,0,R,0,Math.PI*2); ctx.fill();
+      ctx.save(); if(flip) ctx.rotate(Math.PI); const u=R/50;              // toque drawn in a 100-unit box
+      ctx.fillStyle=pal.room; ctx.beginPath();
+      ctx.arc(-13*u,-9*u,13*u,0,Math.PI*2); ctx.arc(0,-15*u,15*u,0,Math.PI*2); ctx.arc(13*u,-9*u,13*u,0,Math.PI*2);
+      ctx.rect(-14*u,-10*u,28*u,14*u); ctx.rect(-12*u,2*u,24*u,16*u); ctx.fill();
+      ctx.restore(); sideLabel(); break; }
     case 'plant': { ctx.fillStyle=pal.furn; ctx.beginPath(); ctx.arc(0,0,Math.min(w,h)/2,0,Math.PI*2); ctx.fill(); ctx.stroke();
       const r=Math.min(w,h)/2; ctx.strokeStyle=pal.gold; ctx.lineWidth=lw*1.2; for(let i=0;i<6;i++){ const a=i*Math.PI/3; ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(Math.cos(a+0.5)*r*0.55,Math.sin(a+0.5)*r*0.55,Math.cos(a)*r*0.85,Math.sin(a)*r*0.85); ctx.stroke(); } ctx.strokeStyle=pal.ink; sideLabel(); break; }
     case 'coatrail': { ctx.fillStyle=pal.ink; ctx.fillRect(-w/2,-lw,w,lw*2); const n=Math.max(2,Math.round(it.w/0.15)); for(let i=0;i<=n;i++){ const x=-w/2+i*w/n; ctx.beginPath(); ctx.arc(x,0,Math.max(1.5,S*0.03),0,Math.PI*2); ctx.fill(); } sideLabel(); break; }
@@ -919,7 +926,7 @@ function renderSel(){
   const ss=$('#sSeats'); if(ss) ss.addEventListener('input',e=>{ it.seats=Math.min(60,Math.max(0,parseInt(e.target.value)||0)); if(def.row){ it.w=+(Math.max(1,it.seats)*0.5).toFixed(2); } else if(!it.preset||it.preset==='auto') Object.assign(it,tableSize(it.type,Math.max(1,it.seats),it.sides)); clampToRoom(it); syncSize(); refresh(); });
   const sd=$('#sSides'); if(sd) sd.addEventListener('change',e=>{ it.sides=e.target.value; if(!it.preset||it.preset==='auto') Object.assign(it,tableSize(it.type,Math.max(1,it.seats),it.sides)); clampToRoom(it); syncSize(); refresh(); });
   const sp=$('#sPreset'); if(sp) sp.addEventListener('change',e=>{ if(e.target.value==='custom') it.preset='custom'; else applyPreset(it,e.target.value); clampToRoom(it); syncSize(); refresh(); });
-  $('#sW').addEventListener('change',e=>{ const v=fromU(Math.max(0.05,parseFloat(e.target.value)||0.05)); it.w=v; if(isRound(it)||it.type==='square'||it.type==='plant'||it.type==='cake') it.h=v; if(it.type==='semi') it.h=+(v/2).toFixed(2); markCustom(); clampToRoom(it); syncSize(); refresh(); });
+  $('#sW').addEventListener('change',e=>{ const v=fromU(Math.max(0.05,parseFloat(e.target.value)||0.05)); it.w=v; if(isRound(it)||it.type==='square'||it.type==='plant'||it.type==='cake'||it.type==='chef') it.h=v; if(it.type==='semi') it.h=+(v/2).toFixed(2); markCustom(); clampToRoom(it); syncSize(); refresh(); });
   const sH=$('#sH'); if(sH) sH.addEventListener('change',e=>{ it.h=fromU(Math.max(0.05,parseFloat(e.target.value)||0.05)); if(it.type==='square'){ it.w=it.h; } if(it.type==='semi'){ it.w=+(it.h*2).toFixed(2); } markCustom(); clampToRoom(it); syncSize(); refresh(); });
   const setRot=r=>{ it.r=((r%360)+360)%360; $('#sRot').value=Math.round(it.r); refresh(); };
   $('#sRot').addEventListener('change',e=>setRot(parseFloat(e.target.value)||0));
