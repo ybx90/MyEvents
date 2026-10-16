@@ -107,7 +107,8 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .btn.mini.del:hover{border-color:var(--danger);color:var(--danger)}
 .rempty{color:var(--muted);font-size:13px;padding:10px 0}
 @media (max-width:700px){ .rrow{flex-wrap:wrap} .rtext{flex-basis:100%;order:3} }
-.main.guests aside{display:none}
+.main.guests aside,.main.nopro aside{display:none}
+.main.nopro{grid-template-columns:1fr}
 .gview{overflow:auto;padding:16px 20px 32px;background:var(--canvas);min-height:0}
 .gtool{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px}
 .gtitle{flex:1;min-width:180px;display:flex;flex-direction:column}
@@ -244,7 +245,14 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .empty .mark b{display:block;font-family:"Bodoni Moda",Didot,"Times New Roman",serif;font-weight:400;font-size:36px;line-height:1;color:var(--ink)}
 .empty .mark span{display:block;font-size:9px;letter-spacing:.42em;color:var(--gold);margin-top:3px;padding-left:.42em}
 .empty p{margin:0;color:var(--ink);font-size:15px}
-.empty p.sub{color:var(--muted);font-size:13px;margin-top:6px}
+.empty p.sub{color:var(--muted);font-size:13px;margin-top:14px}
+.plist{width:min(100%,400px);max-height:46vh;overflow:auto;margin-top:16px;display:flex;flex-direction:column;gap:6px;text-align:left}
+.pitem{font:inherit;display:block;width:100%;text-align:left;padding:10px 13px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);cursor:pointer}
+.pitem:hover{border-color:var(--gold);background:var(--gold-soft)}
+.pitem:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.pitem b{display:block;font-size:13.5px;font-weight:600;overflow-wrap:anywhere}
+.pitem span{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+.plist .none{color:var(--muted);font-size:13px;margin:0;padding:6px 0}
 .lnk{font:inherit;color:var(--gold-deep);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .lnk:hover{color:var(--ink)}
 .zoomctl{position:absolute;right:12px;top:12px;display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px;box-shadow:var(--shadow)}
@@ -339,8 +347,9 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
       <div class="zoomctl"><button class="btn" id="zOut" type="button" title="Zoom out">−</button><button class="btn" id="zFit" type="button" title="Fit room to screen">Fit</button><button class="btn" id="zIn" type="button" title="Zoom in">+</button></div>
       <div class="empty" id="emptyState" hidden>
         <div class="mark"><b>MY</b><span>EVENTS</span></div>
-        <p>No project open.</p>
-        <p class="sub">Pick one from the list at the top, or <button type="button" class="lnk" id="emptyNew">start a new project</button>.</p>
+        <p>Choose a project to open</p>
+        <div class="plist" id="plist"></div>
+        <p class="sub">or <button type="button" class="lnk" id="emptyNew">start a new project</button></p>
       </div>
       <div class="hint">Click a selected item again to rename or renumber it · drag walls and gold corners to shape the room · scroll to zoom · drag empty floor to pan</div>
     </div>
@@ -772,10 +781,11 @@ function loadLegacy(){ try{ const s=JSON.parse(localStorage.getItem('myevents-pl
 let store=loadStore();
 if(!store){ const legacy=loadLegacy();
   store=legacy? {projects:[{id:uid(),updated:Date.now(),data:normalize(legacy)}],current:null} : {projects:[],current:null};
-  store.current=store.projects.length? store.projects[0].id : null; }
+  store.current=null; }
+store.current=null;   // every visit starts at the chooser
 if(!Array.isArray(store.trash)) store.trash=[];
 const TRASH_DAYS=21;
-function curProj(){ return store.projects.find(q=>q.id===store.current)||store.projects[0]; }
+function curProj(){ return store.current? store.projects.find(q=>q.id===store.current)||null : null; }
 function trashPurge(){ const cut=Date.now()-TRASH_DAYS*86400000; const keep=[]; let gone=0;
   store.trash.forEach(t=>{ if((t.deletedAt||0)<cut){ gone++; queuePush(t.id); } else keep.push(t); });
   if(gone){ store.trash=keep; saveStore(); } }
@@ -794,12 +804,26 @@ function flashSaved(){ const el=$('#savedAt'); if(!el) return; clearTimeout(flas
 function markSaved(){ if(!storeOk) return; const d=new Date(); const el=$('#savedAt'); el.classList.remove('dirty'); el.textContent='Saved '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); el.title=fileName?('Also written to '+fileName+' when you use Save a copy as a file'):'Kept in the cloud and on this device'; flashSaved(); }
 function save(){ const pr=curProj(); if(!pr) return; pr.data=state; const js=stateJson(state); if(lastJson.get(pr.id)!==js){ lastJson.set(pr.id,js); pr.updated=Date.now(); scheduleCloud(pr.id); markSaved(); } saveStore(); }
 function projName(pr){ const d=pr.data||{}; const n=[d.job,(d.room||{}).name].filter(Boolean).join(' – ')||'Untitled'; return d.date? n+' · '+fmtDate(d.date) : n; }
+function renderChooser(){ const box=$('#plist'); if(!box) return; box.innerHTML='';
+  const list=store.projects.slice().sort((p,q)=>(q.updated||0)-(p.updated||0));
+  if(!list.length){ const p=document.createElement('p'); p.className='none';
+    p.textContent='Nothing saved yet.'; box.appendChild(p); return; }
+  list.forEach(pr=>{ const d=pr.data||{}, bt=document.createElement('button');
+    bt.type='button'; bt.className='pitem';
+    const nm=document.createElement('b'); nm.textContent=[d.job,(d.room||{}).name].filter(Boolean).join(' \u2013 ')||'Untitled';
+    const mt=document.createElement('span');
+    const tn=(d.items||[]).filter(i=>i&&DEFS[i.type]&&DEFS[i.type].table).length;
+    mt.textContent=[fmtDate(d.date), tn? tn+' table'+(tn===1?'':'s') : ''].filter(Boolean).join('   \u00b7   ');
+    bt.appendChild(nm); bt.appendChild(mt);
+    bt.addEventListener('click',()=>openProject(pr.id)); box.appendChild(bt); }); }
 function updateEmpty(){ const none=!curProj(); const el=$('#emptyState'); if(el) el.hidden=!none;
+  $('.main').classList.toggle('nopro',none); if(none){ renderChooser(); $('#tStats').textContent=''; }
   ['dl','png','saveBtn'].forEach(id=>{ const x=$('#'+id); if(x) x.disabled=none; });
   document.querySelectorAll('.vbtn').forEach(x=>{ if(x.dataset.view!=='plan') x.disabled=none; });
   if(none&&curView!=='plan') setView('plan'); }
 function renderProjects(){ const sel=$('#projSel'); updateEmpty(); if(document.activeElement===sel) return; sel.innerHTML='';
-  if(!store.projects.length){ const o=document.createElement('option'); o.value=''; o.textContent='No projects yet'; sel.appendChild(o); return; } store.projects.forEach(q=>{ const o=document.createElement('option'); o.value=q.id; o.textContent=projName(q); if(q.id===store.current) o.selected=true; sel.appendChild(o); }); }
+  if(!curProj()){ const o=document.createElement('option'); o.value=''; o.selected=true;
+    o.textContent=store.projects.length? '\u2014 choose a project \u2014' : 'No projects yet'; sel.appendChild(o); } store.projects.forEach(q=>{ const o=document.createElement('option'); o.value=q.id; o.textContent=projName(q); if(q.id===store.current) o.selected=true; sel.appendChild(o); }); }
 function openProject(id){ save(); store.current=id; state=normalize(curProj().data); saveStore(); closeInline(); fileHandle=null; fileName=null; fileDirty=false; fillRoomInputs(); renderSel(); zoomFit(); lastTableSig=''; refresh(); renderProjects(); histReset(); setFileStatus(); if(curView==='guests') renderGuestView(); else if(curView==='run') renderRun(); }
 function newProject(data){ const pr={id:uid(),updated:Date.now(),data:normalize(data)}; store.projects.push(pr); openProject(pr.id); }
 
@@ -843,8 +867,7 @@ async function pull(full){ if(!syncConfigured()||!navigator.onLine) return; try{
     if(changed||changedHalls){ saveStore(); saveHalls(); renderProjects(); renderHalls(); }
     if(changedCurrent==='deleted'){ switchAfterRemoteDelete(); toast('This project was deleted on another device'); }
     else if(changedCurrent){ state=normalize(curProj().data); closeInline(); fillRoomInputs(); renderSel(); lastTableSig=''; refresh(); histReset(); if(curView==='guests') renderGuestView(); else if(curView==='run') renderRun(); toast('Updated from another device'); }
-    if(!curProj()&&store.projects.length){ const newest=store.projects.slice().sort((p,q)=>(q.updated||0)-(p.updated||0))[0]; openProject(newest.id); }
-    else updateEmpty();
+    updateEmpty();
     if(!sync.pending.size) setSync('ok','Synced','All changes are saved to the cloud'); else flush(); }
   catch(e){ setSync('error','Sync problem',String(e&&e.message||e)); } }
 async function initCloud(){
@@ -880,7 +903,7 @@ function updateUndo(){ $('#undo').disabled=!hist.undo.length&&!hist.timer; $('#r
 function histReset(){ hist.undo.length=0; hist.redo.length=0; clearTimeout(hist.timer); hist.timer=null; hist.last=stateJson(state); updateUndo(); }
 function histRecord(){ clearTimeout(hist.timer); hist.timer=setTimeout(histCommit,500); updateUndo(); }
 function histCommit(){ clearTimeout(hist.timer); hist.timer=null; const s=stateJson(state); if(s!==hist.last){ if(hist.last!=null){ hist.undo.push(hist.last); if(hist.undo.length>100) hist.undo.shift(); } hist.last=s; hist.redo.length=0; } updateUndo(); }
-function histApply(s){ hist.last=s; const keep=state.sel; state=normalize(JSON.parse(s)); if(keep&&byId(keep)) state.sel=keep; curProj().data=state; closeInline(); fillRoomInputs(); renderSel(); lastTableSig=''; refresh(); }
+function histApply(s){ if(!curProj()) return; hist.last=s; const keep=state.sel; state=normalize(JSON.parse(s)); if(keep&&byId(keep)) state.sel=keep; curProj().data=state; closeInline(); fillRoomInputs(); renderSel(); lastTableSig=''; refresh(); }
 function undo(){ histCommit(); if(!hist.undo.length) return; hist.redo.push(hist.last); histApply(hist.undo.pop()); updateUndo(); }
 function redo(){ histCommit(); if(!hist.redo.length) return; hist.undo.push(hist.last); histApply(hist.redo.pop()); updateUndo(); }
 $('#undo').addEventListener('click',undo); $('#redo').addEventListener('click',redo);
@@ -1111,7 +1134,7 @@ document.addEventListener('keydown',e=>{
 
 // ---------- save, toast, project buttons ----------
 let tT; function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('on'); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove('on'),2800); }
-function saveNow(){ histCommit(); const pr=curProj(); pr.data=state; lastJson.set(pr.id,stateJson(state)); pr.updated=Date.now(); const ok=saveStore(); markSaved();
+function saveNow(){ const pr=curProj(); if(!pr) return; histCommit(); pr.data=state; lastJson.set(pr.id,stateJson(state)); pr.updated=Date.now(); const ok=saveStore(); markSaved();
   if(syncConfigured()){ queuePush(pr.id); halls.forEach(x=>{}); clearTimeout(sync.timer); flush(); toast(navigator.onLine?'Saved':'Saved on this device — it will reach the cloud when you are back online'); }
   else toast(ok?'Saved on this device':'Could not save — this browser is blocking storage (private window?)'); }
 const arm=(id,label,fn)=>{ let t=null; $('#'+id).addEventListener('click',()=>{ const b=$('#'+id); if(t){ clearTimeout(t); t=null; b.textContent=label; fn(); return; } b.textContent='Click again to confirm'; t=setTimeout(()=>{ t=null; b.textContent=label; },3000); }); };
@@ -1400,7 +1423,7 @@ let fileHandle=null, fileName=null, fileDirty=false;
 const FILE_TYPES=[{description:'MY Events plan',accept:{'application/json':['.json']}}];
 function setFileStatus(){ markSaved(); }
 let fileTime='';
-function projectFileBody(){ const pr=curProj(); return JSON.stringify({app:'myevents-planner',version:2,exported:new Date().toISOString(),project:{id:pr.id,updated:pr.updated,data:pr.data}},null,1); }
+function projectFileBody(){ const pr=curProj(); if(!pr) return null; return JSON.stringify({app:'myevents-planner',version:2,exported:new Date().toISOString(),project:{id:pr.id,updated:pr.updated,data:pr.data}},null,1); }
 async function saveToFile(){ histCommit(); save(); const body=projectFileBody(); const name=(baseName().replace(/-plan$/,'')||'plan')+'.json'; const d=new Date(); fileTime=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
   if(window.showSaveFilePicker){ try{ if(!fileHandle) fileHandle=await window.showSaveFilePicker({suggestedName:name,types:FILE_TYPES}); const w=await fileHandle.createWritable(); await w.write(body); await w.close(); fileName=fileHandle.name; fileDirty=false; setFileStatus(); toast('Saved '+fileName); return; }
     catch(e){ if(e&&e.name==='AbortError'){ toast('Save cancelled'); return; } fileHandle=null; } }
@@ -1572,7 +1595,7 @@ $('#restoreFile').addEventListener('change',async e=>{ const f=e.target.files&&e
     if(Array.isArray(j.halls)){ j.halls.forEach(h=>{ if(!h||!h.room||!h.name) return; const i=halls.findIndex(x=>x.id===h.id||x.name.toLowerCase()===h.name.toLowerCase()); if(i<0) halls.push(h); else if((h.updated||0)>(halls[i].updated||0)) halls[i]=h; }); saveHalls(); renderHalls(); }
     let added=0,updated=0; list.forEach(q=>{ if(!q||!q.data||!q.data.room||!Array.isArray(q.data.items)) return; const id=q.id||uid(); const ex=store.projects.find(x=>x.id===id);
       if(!ex){ store.projects.push({id,updated:q.updated||Date.now(),data:normalize(q.data)}); added++; } else if((q.updated||0)>(ex.updated||0)){ ex.updated=q.updated; ex.data=normalize(q.data); updated++; } });
-    saveStore(); state=normalize(curProj().data); fillRoomInputs(); renderSel(); refresh(); renderProjects(); histReset(); if(curView==='guests') renderGuestView(); store.projects.forEach(q=>queuePush(q.id)); halls.forEach(h=>queuePush(h.id)); flush();
+    saveStore(); state=normalize(curProj()? curProj().data : blank()); fillRoomInputs(); renderSel(); refresh(); renderProjects(); histReset(); if(curView==='guests') renderGuestView(); store.projects.forEach(q=>queuePush(q.id)); halls.forEach(h=>queuePush(h.id)); flush();
     toast(`Restored: ${added} added, ${updated} updated`); }
   catch(err){ toast('That file isn’t a planner backup.'); } });
 
