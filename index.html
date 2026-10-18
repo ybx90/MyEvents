@@ -337,7 +337,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 
       <details class="sec" id="secEvent" open><summary>Event</summary><div class="body">
         <div class="field"><label for="jobName">Job / event name</label><input id="jobName" placeholder="e.g. Cohen wedding" maxlength="80"></div>
-        <div class="field mt"><label for="rName">Hall / room</label><input id="rName" value="Main Hall" maxlength="60"></div>
+        <div class="field mt"><label for="rName">Hall / room</label><input id="rName" value="" placeholder="Main Hall" maxlength="60"></div>
         <div class="field mt datef"><label for="evDate">Date</label><button class="btn datebtn" id="evDate" type="button" aria-haspopup="dialog">Pick a date</button><div class="cal" id="cal" hidden role="dialog" aria-label="Choose a date"></div></div>
         <p class="note" id="syncNote" hidden></p>
       </div></details>
@@ -1141,7 +1141,10 @@ const arm=(id,label,fn)=>{ let t=null; $('#'+id).addEventListener('click',()=>{ 
 arm('clear','Clear room',()=>{ state.items=[]; state.sel=null; closeInline(); renderSel(); refresh(); toast('Room cleared — Undo brings it back'); });
 arm('pDel','Delete',()=>{ const id=store.current; trashPut(store.projects.find(q=>q.id===id)); store.projects=store.projects.filter(q=>q.id!==id); queuePush(id);
   store.current=store.projects.length? store.projects[store.projects.length-1].id : null; state=normalize(curProj()? curProj().data : blank()); saveStore(); closeInline(); fillRoomInputs(); renderSel(); zoomFit(); refresh(); renderProjects(); histReset(); toast('Project deleted — Project ▾ \u2192 Recently deleted puts it back for '+TRASH_DAYS+' days'); });
-$('#example').addEventListener('click',()=>{ const s=sample(); s.units=state.units; s.paper=state.paper; newProject(s); toast('Example layout opened as a new project'); });
+$('#example').addEventListener('click',()=>{ if(!curProj()) return; const s=sample();
+  state.items=s.items; state.room=s.room; state.sel=null; closeInline(); limitCuts();
+  fillRoomInputs(); renderSel(); zoomFit(); lastTableSig=''; refresh();
+  toast('Example layout dropped in \u2014 Undo puts it back'); });
 function renderTrash(){ trashPurge(); const box=$('#trashList'); box.innerHTML='';
   const list=store.trash.slice().sort((a,b)=>b.deletedAt-a.deletedAt);
   $('#trashNote').textContent=list.length? 'Deleted projects are kept for '+TRASH_DAYS+' days, then removed for good.' : 'Nothing has been deleted in the last '+TRASH_DAYS+' days.';
@@ -1161,7 +1164,8 @@ pmb.addEventListener('click',e=>{ e.stopPropagation(); toggleMenu(pm.hidden); })
 document.addEventListener('click',e=>{ if(!pm.hidden&&!pm.contains(e.target)) toggleMenu(false); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!pm.hidden) toggleMenu(false); });
 ['pNew','pDup','pBackup','pRestore','pSaveFile','pOpenFile','pTrash'].forEach(id=>$('#'+id).addEventListener('click',()=>toggleMenu(false)));
-function startNewProject(){ const s=blank(); s.units=state.units; s.paper=state.paper; newProject(s); $('#jobName').focus(); }
+function startNewProject(){ const s=blank(); s.units=state.units; s.paper=state.paper; s.room.name='';
+  newProject(s); $('#jobName').focus(); }
 $('#pNew').addEventListener('click',startNewProject);
 $('#emptyNew').addEventListener('click',startNewProject);
 $('#pDup').addEventListener('click',()=>{ save(); const d=JSON.parse(JSON.stringify(state)); d.job=(d.job||d.room.name||'Untitled')+' (copy)'; newProject(d); toast('Project duplicated'); });
