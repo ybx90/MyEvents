@@ -96,6 +96,19 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .vbtn.on{background:var(--ink);color:var(--paper)}
 .vbtn span{margin-left:6px;font-weight:500;opacity:.8}
 .main.guests{grid-template-columns:1fr}
+.dview{position:relative;min-width:0;min-height:0;overflow:hidden;background:var(--canvas)}
+#d3c{display:block;width:100%;height:100%}
+.d3bar{position:absolute;left:12px;top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;z-index:2}
+.d3grp{display:inline-flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:3px;box-shadow:var(--shadow)}
+.d3grp button{font:inherit;font-size:11.5px;font-weight:600;padding:4px 9px;border:0;border-radius:5px;background:transparent;color:var(--muted);cursor:pointer}
+.d3grp button:hover{color:var(--ink)}
+.d3grp button.on{background:var(--ink);color:var(--paper)}
+.d3hint{position:absolute;left:12px;bottom:10px;font-size:11px;color:var(--muted);pointer-events:none}
+.d3note{position:absolute;right:12px;top:12px;max-width:310px;z-index:3;background:var(--panel);border:1px solid var(--gold);border-radius:9px;padding:12px 14px;box-shadow:var(--shadow);font-size:12.5px;line-height:1.5}
+.d3note b{display:block;font-size:13px;margin-bottom:4px}
+.d3note ul{margin:6px 0 10px;padding-left:18px;color:var(--muted)}
+.d3note .row{display:flex;gap:6px}
+.d3note .btn{flex:1;font-size:12px;padding:6px 8px}
 .rview{overflow:auto;padding:16px 20px 40px;background:var(--canvas);min-height:0}
 .rlist{max-width:760px}
 .rrow{display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
@@ -290,7 +303,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
     <div class="tgroup proj"><button class="btn" id="projMenuBtn" type="button" aria-haspopup="true" aria-expanded="false">Project ▾</button>
       <div class="menu" id="projMenu" hidden><button class="btn" id="pNew" type="button">New project</button><button class="btn" id="pDup" type="button">Duplicate this project</button><button class="btn danger" id="pDel" type="button">Delete this project</button><button class="btn" id="pTrash" type="button">Recently deleted…</button><hr><button class="btn" id="pSaveFile" type="button">Save a copy as a file…</button><button class="btn" id="pOpenFile" type="button">Open a plan file…</button><hr><button class="btn" id="pBackup" type="button">Backup all projects…</button><button class="btn" id="pRestore" type="button">Restore from a backup…</button><input type="file" id="restoreFile" accept=".json,application/json" hidden></div>
     </div>
-    <div class="views" role="tablist"><button class="vbtn on" type="button" data-view="plan">Plan</button><button class="vbtn" type="button" data-view="guests">Guests<span id="vGuestCnt"></span></button><button class="vbtn" type="button" data-view="run">Running order</button></div>
+    <div class="views" role="tablist"><button class="vbtn on" type="button" data-view="plan">Plan</button><button class="vbtn" type="button" data-view="guests">Guests<span id="vGuestCnt"></span></button><button class="vbtn" type="button" data-view="run">Running order</button><button class="vbtn" type="button" data-view="d3">3D</button></div>
     <div class="tgroup"><button class="btn icon" id="undo" type="button" title="Undo (Ctrl+Z)">↶</button><button class="btn icon" id="redo" type="button" title="Redo (Ctrl+Y)">↷</button></div>
     <div class="tgroup"><button class="btn" id="saveBtn" type="button" title="Save now (Ctrl+S) — everything is kept in the cloud and on this device">Save</button><span class="saved" id="savedAt"></span><span class="sync" id="syncDot" title=""></span><input type="file" id="openFile" accept=".json,application/json" hidden></div>
     <div class="tgroup"><select id="paper" aria-label="Paper size"><option value="a4">A4</option><option value="a3">A3</option></select><button class="btn" id="png" type="button" title="Export the plan as a PNG image">PNG</button><button class="btn gold" id="dl" type="button">Download PDF</button></div>
@@ -352,6 +365,17 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
         <p class="sub">or <button type="button" class="lnk" id="emptyNew">start a new project</button></p>
       </div>
       <div class="hint">Click a selected item again to rename or renumber it · drag walls and gold corners to shape the room · scroll to zoom · drag empty floor to pan</div>
+    </div>
+    <div class="dview" id="dview" hidden>
+      <canvas id="d3c"></canvas>
+      <div class="d3bar">
+        <span class="d3grp"><button type="button" data-look="light">Light</button><button type="button" data-look="dark">Dark</button></span>
+        <span class="d3grp"><button type="button" data-wall="cream">Cream</button><button type="button" data-wall="white">White</button><button type="button" data-wall="ink">Dark</button><button type="button" data-wall="mirror">Mirror</button></span>
+        <span class="d3grp"><button type="button" data-cam="0">Corner</button><button type="button" data-cam="1">Along</button><button type="button" data-cam="2">Above</button></span>
+        <button class="btn" id="d3shot" type="button">Save image</button>
+      </div>
+      <div class="d3note" id="d3note" hidden></div>
+      <div class="d3hint">Drag to turn · scroll to zoom</div>
     </div>
     <div class="rview" id="rview" hidden>
       <div class="gtool">
@@ -445,6 +469,12 @@ const DEFS={
   block:{name:'Custom block',cat:'structure',w:2,h:1,label:'BLOCK'},
   text:{name:'Text box',cat:'text',w:3,h:0.8,label:'Your text here'}
 };
+// How tall each thing stands. A plan carries a footprint and nothing else, so 3D needs this.
+const H3={ round:0.75,rect:0.75,square:0.75,top:0.75,oval:0.75,semi:0.75,poseur:1.05,
+  buffet:0.76,bar:1.1,dj:1.0,stage:0.3,dance:0.02,block:2.0,partition:2.1,pillar:3.0,
+  armchair:0.75,sofa:0.8,bench:0.45,chairrow:0.9,gifts:0.76,sweets:0.76,cake:0.9,plant:0.8,
+  desk:1.1,coatrail:1.7,screen:2.0,lectern:1.15,speaker:1.2,photobooth:2.1,chuppah:2.4,
+  steps:0.3,chef:1.75,door:0,window:0,text:0 };
 const PRESETS={r3:[0.91,0.91],r4:[1.22,1.22],r5:[1.52,1.52],'r5.5':[1.68,1.68],r6:[1.83,1.83],'r6.5':[1.98,1.98],t4:[1.22,0.76],t6:[1.83,0.76],t8:[2.44,0.76],s3:[0.91,0.91],s4:[1.22,1.22],h5:[1.52,0.76],h6:[1.83,0.915],o6:[1.83,1.22],o8:[2.44,1.22]};
 const PRESET_NAMES={r3:'3 ft round',r4:'4 ft round',r5:'5 ft round','r5.5':'5 ft 6 round',r6:'6 ft round','r6.5':'6 ft 6 round',t4:'4 ft trestle',t6:'6 ft trestle',t8:'8 ft trestle',s3:'3 ft square',s4:'4 ft square',h5:'5 ft half‑round',h6:'6 ft half‑round',o6:'6 ft oval',o8:'8 ft oval'};
 const family=it=> it.type==='round'?'r' : it.type==='square'?'s' : it.type==='poseur'?'p' : it.type==='semi'?'h' : it.type==='oval'?'o' : 't';
@@ -1252,11 +1282,181 @@ function addRunRow(){ runRows().push({id:uid(),time:'',text:''}); renderRun(); r
   const ins=$('#rlist').querySelectorAll('.rtime'); if(ins.length) ins[ins.length-1].focus(); }
 $('#rAdd').addEventListener('click',addRunRow);
 
+// ---------- 3D view ----------
+// The plan already describes a room: an outline, items with a position, size and turn, and seats
+// worked out for every table. Standing it up only needs a height per type and a camera.
+const D3={on:false,ready:false,scene:null,cam:null,ren:null,root:null,walls:[],mats:null,
+  look:'light',wall:'cream',yaw:-0.62,pitch:0.5,dist:22,target:null,raf:0};
+const D3PAL={
+  light:{bg:0xF2EFE7,floor:0xE6E1D4,furn:0xF1EFE8,table:0xFFFFFF,chair:0xECE8DC,gold:0xC9A54A,person:0x9B978C,amb:.72,sun:.9},
+  dark :{bg:0x14151A,floor:0x262830,furn:0x3A3C45,table:0x474952,chair:0x33353D,gold:0xD9B86A,person:0x7E7A70,amb:.55,sun:1.0}};
+const D3WALL={cream:0xE8E3D6,white:0xFAF9F6,ink:0x2A2B31,mirror:0x9FB3C8};
+
+function loadThree(){ if(window.THREE) return Promise.resolve(true);
+  return new Promise(res=>{ const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    s.onload=()=>res(true); s.onerror=()=>res(false); document.head.appendChild(s); }); }
+
+// Flat on paper nobody notices a table drawn at the wrong size. Standing up, the chairs float.
+function scaleIssues(){ const out=[];
+  state.items.forEach(it=>{ if(!isTable(it)||!it.seats) return;
+    const want=tableSize(it.type,Math.max(1,it.seats),it.sides);
+    const got=Math.max(it.w,it.h), exp=Math.max(want.w,want.h);
+    if(exp>0&&(got<exp*0.72||got>exp*1.55)) out.push({it,got,exp}); });
+  return out; }
+function showScaleNote(){ const n=$('#d3note'), bad=scaleIssues(); if(!n) return;
+  if(!bad.length){ n.hidden=true; return; }
+  const list=bad.slice(0,3).map(q=>`<li>Table ${esc(tableName(q.it)||'')} is ${fmtU(q.got)} — a ${q.it.seats}-seat ${DEFS[q.it.type].name.toLowerCase()} is usually ${fmtU(q.exp)}</li>`).join('');
+  n.innerHTML=`<b>Scale looks off</b>${bad.length} table${bad.length===1?'':'s'} ${bad.length===1?'is':'are'} not the size ${bad.length===1?'it seats':'they seat'}.<ul>${list}`+
+    (bad.length>3?`<li>and ${bad.length-3} more</li>`:'')+`</ul><div class="row"><button class="btn" id="d3fix" type="button">Correct them</button><button class="btn" id="d3keep" type="button">Leave as is</button></div>`;
+  n.hidden=false;
+  $('#d3fix').addEventListener('click',()=>{ bad.forEach(q=>{ Object.assign(q.it,tableSize(q.it.type,Math.max(1,q.it.seats),q.it.sides)); q.it.preset='auto'; clampToRoom(q.it); });
+    n.hidden=true; refresh(); build3D(); toast(bad.length+' table'+(bad.length===1?'':'s')+' resized — Undo puts them back'); });
+  $('#d3keep').addEventListener('click',()=>{ n.hidden=true; }); }
+
+function d3Mat(c,o){ return new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.82},o||{})); }
+function build3D(){ if(!window.THREE||!D3.scene) return;
+  const P=D3PAL[D3.look], r=state.room, poly=roomPoly();
+  if(D3.root) D3.scene.remove(D3.root);
+  D3.root=new THREE.Group(); D3.scene.add(D3.root); D3.walls.length=0;
+  D3.scene.background=new THREE.Color(P.bg); D3.scene.fog=new THREE.Fog(P.bg,Math.max(26,r.d),Math.max(70,r.d*3.5));
+
+  const floorM=d3Mat(P.floor,{roughness:.95,side:THREE.DoubleSide});
+  const shape=new THREE.Shape(poly.map(p=>new THREE.Vector2(p[0],p[1])));
+  const floor=new THREE.Mesh(new THREE.ShapeGeometry(shape),floorM);
+  floor.rotation.x=Math.PI/2; floor.receiveShadow=true; D3.root.add(floor);
+
+  const mirror=D3.wall==='mirror';
+  const wallM=d3Mat(D3WALL[D3.wall],mirror?{metalness:.85,roughness:.12}:{roughness:.9});
+  const WH=3.0,T=0.12;
+  const cx=poly.reduce((s,p)=>s+p[0],0)/poly.length, cz=poly.reduce((s,p)=>s+p[1],0)/poly.length;
+  for(let i=0;i<poly.length;i++){ const p=poly[i], q=poly[(i+1)%poly.length];
+    const dx=q[0]-p[0], dz=q[1]-p[1], len=Math.hypot(dx,dz); if(len<0.01) continue;
+    const m=new THREE.Mesh(new THREE.BoxGeometry(len+T,WH,T),wallM);
+    const mx=(p[0]+q[0])/2, mz=(p[1]+q[1])/2;
+    m.position.set(mx,WH/2,mz); m.rotation.y=-Math.atan2(dz,dx);
+    m.castShadow=true; m.receiveShadow=true; D3.root.add(m);
+    let nx=dz/len, nz=-dx/len;
+    if((mx+nx-cx)**2+(mz+nz-cz)**2<(mx-cx)**2+(mz-cz)**2){ nx=-nx; nz=-nz; }
+    D3.walls.push({mesh:m,nx,nz,mx,mz}); }
+
+  const furnM=d3Mat(P.furn), tableM=d3Mat(P.table), chairM=d3Mat(P.chair),
+        goldM=d3Mat(P.gold,{metalness:.35,roughness:.45}), personM=d3Mat(P.person,{roughness:.7});
+  const add=(m,x,z,ry)=>{ m.position.x=x; m.position.z=z; if(ry) m.rotation.y=ry;
+    m.castShadow=true; m.receiveShadow=true; D3.root.add(m); return m; };
+
+  function chair(x,z,face,size,stool){ const g=new THREE.Group(), w=size||CH;
+    if(stool){ const t=new THREE.Mesh(new THREE.CylinderGeometry(w*0.4,w*0.4,0.06,18),chairM); t.position.y=0.72; g.add(t);
+      const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.14,0.72,14),chairM); p.position.y=0.36; g.add(p); }
+    else{ const s=new THREE.Mesh(new THREE.BoxGeometry(w,0.07,w),chairM); s.position.y=0.45; g.add(s);
+      const bk=new THREE.Mesh(new THREE.BoxGeometry(w,0.42,0.06),chairM); bk.position.set(0,0.68,-w/2+0.03); g.add(bk);
+      [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(k=>{ const l=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.45,0.04),chairM);
+        l.position.set(k[0]*(w/2-0.04),0.225,k[1]*(w/2-0.04)); g.add(l); }); }
+    g.traverse(o=>{o.castShadow=true;}); g.position.set(x,0,z); g.rotation.y=face; D3.root.add(g); return g; }
+  function person(x,z,face){ const g=new THREE.Group();
+    const t=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,0.55,14),personM); t.position.y=0.72; g.add(t);
+    const hd=new THREE.Mesh(new THREE.SphereGeometry(0.115,16,12),personM); hd.position.y=1.09; g.add(hd);
+    g.traverse(o=>{o.castShadow=true;}); g.position.set(x,0,z); g.rotation.y=face; D3.root.add(g); }
+
+  const seated=new Set(); (state.guests||[]).forEach(g=>{ if(g.table&&g.seat) seated.add(g.table+'#'+g.seat); });
+
+  state.items.forEach(it=>{
+    const H=H3[it.type]; const deg=(it.r||0)*Math.PI/180;
+    const rot=(lx,ly)=>({x:it.x+lx*Math.cos(deg)-ly*Math.sin(deg), y:it.y+lx*Math.sin(deg)+ly*Math.cos(deg)});
+    if(isTable(it)){
+      const top=new THREE.Mesh(isRound(it)?new THREE.CylinderGeometry(it.w/2,it.w/2,0.05,40)
+        :new THREE.BoxGeometry(it.w,0.05,it.h),tableM);
+      top.position.y=H; add(top,it.x,it.y,-deg);
+      const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.13,H,16),furnM); leg.position.y=H/2; add(leg,it.x,it.y,0);
+      seatLayout(it).forEach((s,i)=>{ const p=rot(s.x,s.y);
+        chair(p.x,p.y,-(s.a||0)-deg,s.size,s.stool);
+        if(seated.has(it.id+'#'+(i+1))) person(p.x,p.y,-(s.a||0)-deg); });
+      return; }
+    if(H===undefined||H===0) return;
+    if(it.type==='plant'||it.type==='cake'){
+      const pot=new THREE.Mesh(new THREE.CylinderGeometry(it.w*0.3,it.w*0.22,0.3,18),furnM); pot.position.y=0.15; add(pot,it.x,it.y,0);
+      const tp=new THREE.Mesh(new THREE.SphereGeometry(it.w*0.42,18,14),goldM); tp.position.y=0.3+it.w*0.35; add(tp,it.x,it.y,0); return; }
+    if(it.type==='chef'){
+      const g=new THREE.Group(), white=d3Mat(0xFBFAF7,{roughness:.85});
+      const legs=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.17,0.78,14),d3Mat(P.person,{roughness:.8})); legs.position.y=0.39; g.add(legs);
+      const t=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.24,0.56,14),white); t.position.y=1.06; g.add(t);
+      const hd=new THREE.Mesh(new THREE.SphereGeometry(0.155,16,12),d3Mat(0xC9A98A,{roughness:.85})); hd.position.y=1.47; g.add(hd);
+      const band=new THREE.Mesh(new THREE.CylinderGeometry(0.165,0.165,0.1,16),white); band.position.y=1.62; g.add(band);
+      const puff=new THREE.Mesh(new THREE.SphereGeometry(0.2,16,12),white); puff.position.y=1.78; puff.scale.y=0.78; g.add(puff);
+      g.traverse(o=>{o.castShadow=true;}); g.position.set(it.x,0,it.y); D3.root.add(g); return; }
+    if(it.type==='dance'){
+      const m=new THREE.Mesh(new THREE.BoxGeometry(it.w,0.03,it.h),d3Mat(P.gold,{roughness:.3,metalness:.25}));
+      m.position.y=0.015; add(m,it.x,it.y,-deg); return; }
+    if(it.type==='chairrow'){ seatLayout(it).forEach(s=>{ const p=rot(s.x,s.y); chair(p.x,p.y,-(s.a||0)-deg,s.size); }); return; }
+    const gold=it.type==='bar'||it.type==='dj'||it.type==='stage';
+    const m=new THREE.Mesh(new THREE.BoxGeometry(it.w,H,it.h),gold?goldM:furnM);
+    m.position.y=H/2; add(m,it.x,it.y,-deg); });
+
+  D3.root.position.set(-r.w/2,0,-r.d/2);
+  D3.target=new THREE.Vector3(0,1.1,0); d3Place(); }
+
+function d3Lights(){ const P=D3PAL[D3.look]; if(D3.lights) D3.scene.remove(D3.lights);
+  D3.lights=new THREE.Group();
+  D3.lights.add(new THREE.HemisphereLight(0xffffff,0x606060,P.amb));
+  const sun=new THREE.DirectionalLight(0xFFF6E2,P.sun); sun.position.set(10,18,8); sun.castShadow=true;
+  sun.shadow.mapSize.set(2048,2048); const S=Math.max(16,Math.max(state.room.w,state.room.d)*0.75);
+  sun.shadow.camera.left=-S; sun.shadow.camera.right=S; sun.shadow.camera.top=S; sun.shadow.camera.bottom=-S; sun.shadow.camera.far=90;
+  D3.lights.add(sun); D3.scene.add(D3.lights); }
+
+function d3Place(){ if(!D3.cam||!D3.target) return;
+  D3.cam.position.set(D3.target.x+D3.dist*Math.cos(D3.pitch)*Math.sin(D3.yaw),
+    D3.target.y+D3.dist*Math.sin(D3.pitch), D3.target.z+D3.dist*Math.cos(D3.pitch)*Math.cos(D3.yaw));
+  D3.cam.lookAt(D3.target); }
+function d3Cam(k){ const span=Math.max(state.room.w,state.room.d);
+  if(k===0){ D3.yaw=-0.62; D3.pitch=0.5; D3.dist=span*1.05; }
+  if(k===1){ D3.yaw=0.02; D3.pitch=0.30; D3.dist=span*0.9; }
+  if(k===2){ D3.yaw=-0.5; D3.pitch=1.15; D3.dist=span*1.25; }
+  d3Place(); }
+function d3Size(){ const el=$('#dview'); if(!el||!D3.ren) return;
+  const w=el.clientWidth||1, h=el.clientHeight||1;
+  D3.ren.setSize(w,h,false); D3.cam.aspect=w/h; D3.cam.updateProjectionMatrix(); }
+function d3Loop(){ if(!D3.on) return; D3.raf=requestAnimationFrame(d3Loop);
+  for(const w of D3.walls){ const wx=w.mx-state.room.w/2, wz=w.mz-state.room.d/2;
+    w.mesh.visible=(D3.cam.position.x-wx)*w.nx+(D3.cam.position.z-wz)*w.nz<0.6; }
+  D3.ren.render(D3.scene,D3.cam); }
+
+async function enter3D(){ const el=$('#dview');
+  if(!D3.ready){
+    if(!await loadThree()){ toast('3D needs a connection the first time — try again when you are online'); setView('plan'); return; }
+    const c=$('#d3c');
+    D3.ren=new THREE.WebGLRenderer({canvas:c,antialias:true,preserveDrawingBuffer:true});
+    D3.ren.setPixelRatio(Math.min(2,devicePixelRatio||1));
+    D3.ren.shadowMap.enabled=true; D3.ren.shadowMap.type=THREE.PCFSoftShadowMap;
+    D3.scene=new THREE.Scene(); D3.cam=new THREE.PerspectiveCamera(42,1,0.1,400);
+    let down=false,lx=0,ly=0;
+    c.addEventListener('pointerdown',e=>{down=true;lx=e.clientX;ly=e.clientY;c.setPointerCapture(e.pointerId);});
+    c.addEventListener('pointerup',e=>{down=false;try{c.releasePointerCapture(e.pointerId);}catch(err){}});
+    c.addEventListener('pointermove',e=>{ if(!down) return;
+      D3.yaw-=(e.clientX-lx)*0.006; D3.pitch=Math.max(0.05,Math.min(1.45,D3.pitch+(e.clientY-ly)*0.005));
+      lx=e.clientX; ly=e.clientY; d3Place(); });
+    c.addEventListener('wheel',e=>{ e.preventDefault();
+      D3.dist=Math.max(3,Math.min(200,D3.dist*(1+Math.sign(e.deltaY)*0.09))); d3Place(); },{passive:false});
+    addEventListener('resize',()=>{ if(D3.on) d3Size(); });
+    D3.ready=true; }
+  D3.on=true; d3Lights(); build3D(); d3Cam(0); d3Size(); showScaleNote(); d3Loop(); d3Marks(); }
+function leave3D(){ D3.on=false; if(D3.raf) cancelAnimationFrame(D3.raf); D3.raf=0; }
+function d3Marks(){ document.querySelectorAll('.d3grp [data-look]').forEach(x=>x.classList.toggle('on',x.dataset.look===D3.look));
+  document.querySelectorAll('.d3grp [data-wall]').forEach(x=>x.classList.toggle('on',x.dataset.wall===D3.wall)); }
+document.querySelectorAll('.d3grp [data-look]').forEach(x=>x.addEventListener('click',()=>{ D3.look=x.dataset.look; d3Lights(); build3D(); d3Marks(); }));
+document.querySelectorAll('.d3grp [data-wall]').forEach(x=>x.addEventListener('click',()=>{ D3.wall=x.dataset.wall; build3D(); d3Marks(); }));
+document.querySelectorAll('.d3grp [data-cam]').forEach(x=>x.addEventListener('click',()=>d3Cam(+x.dataset.cam)));
+$('#d3shot').addEventListener('click',()=>busy($('#d3shot'),'Saving…',async()=>{
+  try{ D3.ren.render(D3.scene,D3.cam);
+    const blob=await new Promise(res=>$('#d3c').toBlob(res,'image/png'));
+    if(await deliver(baseName().replace(/-plan$/,'')+'-3d.png',blob)) toast('Image saved'); }
+  catch(e){ exportError(e,'image'); } }));
+
 let curView='plan';
 function setView(v){ curView=v; document.querySelectorAll('.vbtn').forEach(x=>x.classList.toggle('on',x.dataset.view===v));
-  $('#gview').hidden=v!=='guests'; $('#rview').hidden=v!=='run'; $('.stage').hidden=v!=='plan';
+  $('#gview').hidden=v!=='guests'; $('#rview').hidden=v!=='run'; $('#dview').hidden=v!=='d3'; $('.stage').hidden=v!=='plan';
   $('.main').classList.toggle('guests',v!=='plan'); closeInline();
-  if(v==='guests') renderGuestView(); else if(v==='run') renderRun(); else draw(); }
+  if(v!=='d3') leave3D();
+  if(v==='guests') renderGuestView(); else if(v==='run') renderRun(); else if(v==='d3') enter3D(); else draw(); }
 document.querySelectorAll('.vbtn').forEach(x=>x.addEventListener('click',()=>setView(x.dataset.view)));
 function tablesSorted(){ return state.items.filter(isTable).slice().sort((p,q)=>(p.num||0)-(q.num||0)||tableName(p).localeCompare(tableName(q))); }
 function tableTitle(t){ const s=sideName(t); const n=Number.isInteger(t.num)?('Table '+t.num+(s?' ('+s+')':'')):''; const l=(t.label||'').trim(); return n&&l? n+' · '+l : (n||l||'Table'); }
