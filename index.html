@@ -1288,8 +1288,10 @@ $('#rAdd').addEventListener('click',addRunRow);
 const D3={on:false,ready:false,scene:null,cam:null,ren:null,root:null,walls:[],mats:null,
   look:'light',wall:'cream',yaw:-0.62,pitch:0.5,dist:22,target:null,raf:0};
 const D3PAL={
-  light:{bg:0xF2EFE7,floor:0xE6E1D4,furn:0xF1EFE8,table:0xFFFFFF,chair:0xECE8DC,gold:0xC9A54A,person:0x9B978C,amb:.72,sun:.9},
-  dark :{bg:0x14151A,floor:0x262830,furn:0x3A3C45,table:0x474952,chair:0x33353D,gold:0xD9B86A,person:0x7E7A70,amb:.55,sun:1.0}};
+  light:{bg:0xF2EFE7,floor:0xE6E1D4,furn:0xF1EFE8,table:0xFFFFFF,chair:0xECE8DC,gold:0xC9A54A,person:0x9B978C,
+    wood:0xC2A981,fabric:0xDAD5C8,leaf:0x7D9A6A,dark:0x55525A,amb:.72,sun:.9},
+  dark :{bg:0x14151A,floor:0x262830,furn:0x3A3C45,table:0x474952,chair:0x33353D,gold:0xD9B86A,person:0x7E7A70,
+    wood:0x7A6549,fabric:0x4C4E57,leaf:0x5E7A55,dark:0x1E1F25,amb:.55,sun:1.0}};
 const D3WALL={cream:0xE8E3D6,white:0xFAF9F6,ink:0x2A2B31,mirror:0x9FB3C8};
 
 function loadThree(){ if(window.THREE) return Promise.resolve(true);
@@ -1359,6 +1361,59 @@ function build3D(){ if(!window.THREE||!D3.scene) return;
     g.traverse(o=>{o.castShadow=true;}); g.position.set(x,0,z); g.rotation.y=face; D3.root.add(g); }
 
   const seated=new Set(); (state.guests||[]).forEach(g=>{ if(g.table&&g.seat) seated.add(g.table+'#'+g.seat); });
+  const woodM=d3Mat(P.wood,{roughness:.7}), fabM=d3Mat(P.fabric,{roughness:.95}),
+        leafM=d3Mat(P.leaf,{roughness:.9}), darkM=d3Mat(P.dark,{roughness:.6});
+  const grp=(x,z,ry)=>{ const g=new THREE.Group(); g.position.set(x,0,z); if(ry) g.rotation.y=ry;
+    D3.root.add(g); return g; };
+  const box=(g,w,hh,d,m,x,y,z)=>{ const o=new THREE.Mesh(new THREE.BoxGeometry(w,hh,d),m);
+    o.position.set(x||0,y||0,z||0); o.castShadow=true; o.receiveShadow=true; g.add(o); return o; };
+
+  // an upholstered seat: plinth, back, two arms, cushions. A plain box reads as a crate.
+  function seatUnit(g,w,d,h,backH){
+    box(g,w,0.32,d,fabM,0,0.16,0);
+    box(g,w,backH,0.14,fabM,0,0.32+backH/2,-d/2+0.07);
+    box(g,0.14,h-0.18,d-0.1,fabM,-w/2+0.07,0.32+(h-0.18)/2-0.08,0.05);
+    box(g,0.14,h-0.18,d-0.1,fabM, w/2-0.07,0.32+(h-0.18)/2-0.08,0.05);
+    const n=Math.max(1,Math.round(w/0.62)), cw=(w-0.28)/n;
+    for(let i=0;i<n;i++) box(g,cw-0.03,0.14,d-0.24,fabM,-w/2+0.14+cw*(i+0.5),0.39,0.04);
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(k=>box(g,0.06,0.1,0.06,darkM,k[0]*(w/2-0.08),0.05,k[1]*(d/2-0.08)));
+  }
+  // a planted tree rather than a gold ball: pot, trunk, three tiers of leaf
+  function treeUnit(g,size){
+    const R=Math.max(0.22,size/2);
+    const pot=new THREE.Mesh(new THREE.CylinderGeometry(R*0.62,R*0.46,R*0.8,20),darkM);
+    pot.position.y=R*0.4; pot.castShadow=true; g.add(pot);
+    const rim=new THREE.Mesh(new THREE.CylinderGeometry(R*0.66,R*0.66,R*0.1,20),darkM);
+    rim.position.y=R*0.78; g.add(rim);
+    const tr=new THREE.Mesh(new THREE.CylinderGeometry(R*0.1,R*0.14,R*1.5,10),woodM);
+    tr.position.y=R*1.5; tr.castShadow=true; g.add(tr);
+    [[R*2.2,R*0.95],[R*2.75,R*0.78],[R*3.2,R*0.5]].forEach((t,i)=>{
+      const s=new THREE.Mesh(new THREE.SphereGeometry(t[1],16,12),leafM);
+      s.position.set((i%2?1:-1)*R*0.16,t[0],(i===1?1:-1)*R*0.12); s.scale.y=0.82;
+      s.castShadow=true; g.add(s); });
+  }
+  // shelving: uprights and shelves, so it is obviously storage and not a block
+  function shelfUnit(g,w,d,h){
+    box(g,0.05,h,d,woodM,-w/2+0.025,h/2,0);
+    box(g,0.05,h,d,woodM, w/2-0.025,h/2,0);
+    box(g,w,0.04,d,woodM,0,h-0.02,0);
+    box(g,w-0.1,0.03,d-0.06,darkM,0,0.03,0);
+    const n=Math.max(2,Math.round(h/0.42));
+    for(let i=1;i<n;i++) box(g,w-0.1,0.035,d-0.04,woodM,0,h*i/n,0);
+  }
+  function clothTable(g,w,d,h,gold){
+    box(g,w,0.05,d,gold?goldM:tableM,0,h-0.025,0);
+    box(g,w-0.03,h-0.06,d-0.03,gold?goldM:furnM,0,(h-0.06)/2,0);
+  }
+
+  // doorways: a door sitting on a partition opens a real gap in it
+  const doors=state.items.filter(q=>q.type==='door');
+  function openingsFor(it){
+    const deg=(it.r||0)*Math.PI/180, ca=Math.cos(deg), sa=Math.sin(deg), out=[];
+    doors.forEach(dr=>{ const dx=dr.x-it.x, dy=dr.y-it.y;
+      const along=dx*ca+dy*sa, across=-dx*sa+dy*ca;
+      if(Math.abs(across)<1.3 && Math.abs(along)<it.w/2) out.push({c:along,w:Math.max(0.7,dr.w)}); });
+    return out.sort((p,q)=>p.c-q.c); }
 
   state.items.forEach(it=>{
     const H=H3[it.type]; const deg=(it.r||0)*Math.PI/180;
@@ -1367,15 +1422,45 @@ function build3D(){ if(!window.THREE||!D3.scene) return;
       const top=new THREE.Mesh(isRound(it)?new THREE.CylinderGeometry(it.w/2,it.w/2,0.05,40)
         :new THREE.BoxGeometry(it.w,0.05,it.h),tableM);
       top.position.y=H; add(top,it.x,it.y,-deg);
-      const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.13,H,16),furnM); leg.position.y=H/2; add(leg,it.x,it.y,0);
+      const skirt=new THREE.Mesh(isRound(it)?new THREE.CylinderGeometry(it.w/2-0.04,it.w/2-0.09,H-0.05,32)
+        :new THREE.BoxGeometry(it.w-0.08,H-0.05,it.h-0.08),d3Mat(P.table,{roughness:.95}));
+      skirt.position.y=(H-0.05)/2; add(skirt,it.x,it.y,-deg);
       seatLayout(it).forEach((s,i)=>{ const p=rot(s.x,s.y);
         chair(p.x,p.y,-(s.a||0)-deg,s.size,s.stool);
         if(seated.has(it.id+'#'+(i+1))) person(p.x,p.y,-(s.a||0)-deg); });
       return; }
-    if(H===undefined||H===0) return;
-    if(it.type==='plant'||it.type==='cake'){
-      const pot=new THREE.Mesh(new THREE.CylinderGeometry(it.w*0.3,it.w*0.22,0.3,18),furnM); pot.position.y=0.15; add(pot,it.x,it.y,0);
-      const tp=new THREE.Mesh(new THREE.SphereGeometry(it.w*0.42,18,14),goldM); tp.position.y=0.3+it.w*0.35; add(tp,it.x,it.y,0); return; }
+    if(H===undefined||H===0){
+      if(it.type==='door'){      // frame and an open leaf
+        const g=grp(it.x,it.y,-deg), DH=2.05, w=it.w;
+        box(g,0.09,DH,0.16,woodM,-w/2,DH/2,0);
+        box(g,0.09,DH,0.16,woodM, w/2,DH/2,0);
+        box(g,w+0.09,0.1,0.16,woodM,0,DH,0);
+        const leaf=new THREE.Group(); leaf.position.set(-w/2,0,0);
+        box(leaf,w-0.06,DH-0.08,0.05,woodM,(w-0.06)/2,(DH-0.08)/2,0);
+        leaf.rotation.y=-1.05; g.add(leaf);
+      }
+      return; }
+    if(it.type==='partition'){
+      const gaps=openingsFor(it), g=grp(it.x,it.y,-deg);
+      let x0=-it.w/2;
+      const seg=(a,bb)=>{ if(bb-a>0.02) box(g,bb-a,H,it.h,furnM,(a+bb)/2,H/2,0); };
+      gaps.forEach(o=>{ seg(x0,o.c-o.w/2); if(H>2.1) box(g,o.w,H-2.05,it.h,furnM,o.c,2.05+(H-2.05)/2,0); x0=o.c+o.w/2; });
+      seg(x0,it.w/2); return; }
+    if(it.type==='plant'){ treeUnit(grp(it.x,it.y,-deg),Math.min(it.w,it.h)); return; }
+    if(it.type==='block'){
+      const g=grp(it.x,it.y,-deg);
+      if(/shelf|shelv|book|rack|unit/i.test(it.label||'')) shelfUnit(g,it.w,it.h,H);
+      else { box(g,it.w,H,it.h,furnM,0,H/2,0); box(g,it.w+0.04,0.04,it.h+0.04,darkM,0,H,0); }
+      return; }
+    if(it.type==='sofa'||it.type==='armchair'){
+      seatUnit(grp(it.x,it.y,-deg),it.w,it.h,H,0.46); return; }
+    if(it.type==='bench'){ const g=grp(it.x,it.y,-deg);
+      box(g,it.w,0.08,it.h,woodM,0,H,0);
+      box(g,0.08,H,it.h-0.06,woodM,-it.w/2+0.1,H/2,0);
+      box(g,0.08,H,it.h-0.06,woodM, it.w/2-0.1,H/2,0); return; }
+    if(it.type==='cake'||it.type==='gifts'||it.type==='sweets'||it.type==='desk'){
+      clothTable(grp(it.x,it.y,-deg),it.w,it.h,H,false); return; }
+    if(it.type==='buffet'){ clothTable(grp(it.x,it.y,-deg),it.w,it.h,H,false); return; }
     if(it.type==='chef'){
       const g=new THREE.Group(), white=d3Mat(0xFBFAF7,{roughness:.85});
       const legs=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.17,0.78,14),d3Mat(P.person,{roughness:.8})); legs.position.y=0.39; g.add(legs);
@@ -1388,8 +1473,13 @@ function build3D(){ if(!window.THREE||!D3.scene) return;
       const m=new THREE.Mesh(new THREE.BoxGeometry(it.w,0.03,it.h),d3Mat(P.gold,{roughness:.3,metalness:.25}));
       m.position.y=0.015; add(m,it.x,it.y,-deg); return; }
     if(it.type==='chairrow'){ seatLayout(it).forEach(s=>{ const p=rot(s.x,s.y); chair(p.x,p.y,-(s.a||0)-deg,s.size); }); return; }
-    const gold=it.type==='bar'||it.type==='dj'||it.type==='stage';
-    const m=new THREE.Mesh(new THREE.BoxGeometry(it.w,H,it.h),gold?goldM:furnM);
+    if(it.type==='bar'){ const g=grp(it.x,it.y,-deg);
+      box(g,it.w,H-0.06,it.h,goldM,0,(H-0.06)/2,0);
+      box(g,it.w+0.08,0.06,it.h+0.1,darkM,0,H-0.03,0); return; }
+    if(it.type==='dj'||it.type==='stage'){ const g=grp(it.x,it.y,-deg);
+      box(g,it.w,H,it.h,goldM,0,H/2,0);
+      box(g,it.w+0.05,0.05,it.h+0.05,darkM,0,H,0); return; }
+    const m=new THREE.Mesh(new THREE.BoxGeometry(it.w,H,it.h),furnM);
     m.position.y=H/2; add(m,it.x,it.y,-deg); });
 
   D3.root.position.set(-r.w/2,0,-r.d/2);
@@ -1407,10 +1497,10 @@ function d3Place(){ if(!D3.cam||!D3.target) return;
   D3.cam.position.set(D3.target.x+D3.dist*Math.cos(D3.pitch)*Math.sin(D3.yaw),
     D3.target.y+D3.dist*Math.sin(D3.pitch), D3.target.z+D3.dist*Math.cos(D3.pitch)*Math.cos(D3.yaw));
   D3.cam.lookAt(D3.target); }
-function d3Cam(k){ const span=Math.max(state.room.w,state.room.d);
-  if(k===0){ D3.yaw=-0.62; D3.pitch=0.5; D3.dist=span*1.05; }
+function d3Cam(k){ const span=Math.hypot(state.room.w,state.room.d);
+  if(k===0){ D3.yaw=-0.62; D3.pitch=0.5; D3.dist=span*0.98; }
   if(k===1){ D3.yaw=0.02; D3.pitch=0.30; D3.dist=span*0.9; }
-  if(k===2){ D3.yaw=-0.5; D3.pitch=1.15; D3.dist=span*1.25; }
+  if(k===2){ D3.yaw=-0.78; D3.pitch=1.2; D3.dist=span*1.15; }
   d3Place(); }
 function d3Size(){ const el=$('#dview'); if(!el||!D3.ren) return;
   const w=el.clientWidth||1, h=el.clientHeight||1;
